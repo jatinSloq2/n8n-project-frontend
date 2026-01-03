@@ -1,0 +1,18 @@
+import { configureStore } from '@reduxjs/toolkit';
+import authReducer from './slices/authSlice';
+import workflowReducer from './slices/workflowSlice';
+import executionReducer from './slices/executionSlice';
+import nodeReducer from './slices/nodeSlice';
+
+export const store = configureStore({
+  reducer: {
+    auth: authReducer,
+    workflow: workflowReducer,
+    execution: executionReducer,
+    node: nodeReducer,
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: false,
+    }),
+});
