@@ -6,19 +6,37 @@ const ThemeProviderContext = createContext({
 });
 
 export function ThemeProvider({ children, defaultTheme = 'light', storageKey = 'theme', ...props }) {
-  const [theme, setTheme] = useState(() => localStorage.getItem(storageKey) || defaultTheme);
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(storageKey);
+      console.log('Initial theme from storage:', stored);
+      return stored || defaultTheme;
+    }
+    return defaultTheme;
+  });
 
   useEffect(() => {
     const root = window.document.documentElement;
+
+    console.log('Applying theme:', theme);
+
+    // Remove both classes first
     root.classList.remove('light', 'dark');
+
+    // Add the current theme
     root.classList.add(theme);
-  }, [theme]);
+
+    // Store in localStorage
+    localStorage.setItem(storageKey, theme);
+
+    console.log('HTML classes:', root.className);
+  }, [theme, storageKey]);
 
   const value = {
     theme,
-    setTheme: (theme) => {
-      localStorage.setItem(storageKey, theme);
-      setTheme(theme);
+    setTheme: (newTheme) => {
+      console.log('setTheme called with:', newTheme);
+      setTheme(newTheme);
     },
   };
 
@@ -31,6 +49,8 @@ export function ThemeProvider({ children, defaultTheme = 'light', storageKey = '
 
 export const useTheme = () => {
   const context = useContext(ThemeProviderContext);
-  if (context === undefined) throw new Error('useTheme must be used within a ThemeProvider');
+  if (context === undefined) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
   return context;
 };

@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-const API_URL = '/api/nodes';
+const API_URL = `${import.meta.env.VITE_BASE_URL}/nodes`;
 
 const initialState = {
   nodeTemplates: [],

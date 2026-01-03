@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-const API_URL = '/api/workflows';
+const API_URL = `${import.meta.env.VITE_BASE_URL}/workflows`;
 
 const initialState = {
   workflows: [],

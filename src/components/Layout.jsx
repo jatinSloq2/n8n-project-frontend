@@ -25,7 +25,7 @@ export default function Layout({ children }) {
             </div>
             <span className="font-bold text-xl">WorkflowPro</span>
           </Link>
-          
+
           <nav className="ml-auto flex items-center space-x-4">
             <Link to="/">
               <Button variant="ghost" size="sm">
@@ -45,21 +45,26 @@ export default function Layout({ children }) {
                 Executions
               </Button>
             </Link>
-            
+
             <ThemeToggle />
-            
+
             <div className="flex items-center space-x-2 border-l pl-4">
               <span className="text-sm font-medium">
                 {user?.firstName} {user?.lastName}
               </span>
-              <Button variant="ghost" size="icon" onClick={handleLogout}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                title="Logout"
+              >
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </nav>
         </div>
       </header>
-      
+
       <main className="container mx-auto p-6">{children}</main>
     </div>
   );
