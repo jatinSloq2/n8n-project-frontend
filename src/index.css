@@ -56,16 +56,3 @@
     --chart-5: 340 75% 55%;
   }
 }
-
-@layer base {
-  * {
-    @apply border border-border; /* add "border" utility as well */
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
-.card, input, textarea {
-  @apply border border-border;
-}
