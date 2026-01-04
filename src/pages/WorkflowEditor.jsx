@@ -471,7 +471,7 @@ export default function WorkflowEditor() {
               className="bg-background"
             >
               <Controls />
-              <MiniMap />
+              {/* <MiniMap /> */}
               <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
             </ReactFlow>
           </div>

@@ -5,12 +5,18 @@ const ThemeProviderContext = createContext({
   setTheme: () => null,
 });
 
-export function ThemeProvider({ children, defaultTheme = 'light', storageKey = 'theme', ...props }) {
+export function ThemeProvider({
+  children,
+  defaultTheme = 'light',
+  storageKey = 'workflowpro-theme',
+  ...props
+}) {
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(storageKey);
-      console.log('Initial theme from storage:', stored);
-      return stored || defaultTheme;
+      if (stored && (stored === 'light' || stored === 'dark')) {
+        return stored;
+      }
     }
     return defaultTheme;
   });
@@ -18,25 +24,28 @@ export function ThemeProvider({ children, defaultTheme = 'light', storageKey = '
   useEffect(() => {
     const root = window.document.documentElement;
 
-    console.log('Applying theme:', theme);
-
-    // Remove both classes first
+    // Remove both theme classes
     root.classList.remove('light', 'dark');
 
-    // Add the current theme
-    root.classList.add(theme);
+    // Add the current theme class
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.add('light');
+    }
 
     // Store in localStorage
-    localStorage.setItem(storageKey, theme);
-
-    console.log('HTML classes:', root.className);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(storageKey, theme);
+    }
   }, [theme, storageKey]);
 
   const value = {
     theme,
     setTheme: (newTheme) => {
-      console.log('setTheme called with:', newTheme);
-      setTheme(newTheme);
+      if (newTheme === 'light' || newTheme === 'dark') {
+        setTheme(newTheme);
+      }
     },
   };
 

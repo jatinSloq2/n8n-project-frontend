@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getExecution } from '@/store/slices/executionSlice';
-import { ArrowLeft, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, Loader2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function ExecutionDetail() {
@@ -26,28 +26,32 @@ export default function ExecutionDetail() {
   }, [dispatch, id]);
 
   const getStatusIcon = (status) => {
+    const iconClass = "h-6 w-6";
     switch (status) {
       case 'success':
-        return <CheckCircle className="h-6 w-6 text-green-500" />;
+        return <CheckCircle className={`${iconClass} text-green-500`} />;
       case 'error':
-        return <XCircle className="h-6 w-6 text-red-500" />;
+        return <XCircle className={`${iconClass} text-red-500`} />;
       case 'running':
-        return <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />;
+        return <Loader2 className={`${iconClass} text-blue-500 animate-spin`} />;
       default:
-        return <Clock className="h-6 w-6 text-gray-500" />;
+        return <Clock className={`${iconClass} text-gray-500`} />;
     }
   };
 
   const getStatusBadge = (status) => {
-    const variants = {
-      success: 'default',
-      error: 'destructive',
-      running: 'secondary',
-      waiting: 'secondary',
-      canceled: 'outline',
+    const configs = {
+      success: { variant: 'default', className: 'bg-green-500 hover:bg-green-600' },
+      error: { variant: 'destructive', className: '' },
+      running: { variant: 'secondary', className: 'bg-blue-500 hover:bg-blue-600 text-white' },
+      waiting: { variant: 'secondary', className: '' },
+      canceled: { variant: 'outline', className: '' },
     };
+    
+    const config = configs[status] || configs.waiting;
+    
     return (
-      <Badge variant={variants[status]} className="capitalize text-sm">
+      <Badge variant={config.variant} className={`capitalize text-sm ${config.className}`}>
         {status}
       </Badge>
     );
@@ -56,8 +60,11 @@ export default function ExecutionDetail() {
   if (isLoading || !currentExecution) {
     return (
       <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mx-auto"></div>
+            <p className="mt-4 text-muted-foreground font-medium">Loading execution details...</p>
+          </div>
         </div>
       </Layout>
     );
@@ -72,19 +79,21 @@ export default function ExecutionDetail() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center space-x-4">
+        {/* Header */}
+        <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/executions')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-3xl font-bold">Execution Details</h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground mt-1">
               {currentExecution.workflowId?.name || 'Unknown workflow'}
             </p>
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Status Cards */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Status</CardTitle>
@@ -100,7 +109,7 @@ export default function ExecutionDetail() {
               <CardTitle className="text-sm font-medium">Started At</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-sm">
+              <div className="text-sm font-medium">
                 {format(new Date(currentExecution.startedAt), 'PPpp')}
               </div>
             </CardContent>
@@ -111,8 +120,13 @@ export default function ExecutionDetail() {
               <CardTitle className="text-sm font-medium">Duration</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-sm">
-                {duration !== null ? `${duration}s` : 'Running...'}
+              <div className="text-sm font-medium">
+                {duration !== null ? `${duration}s` : (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Running...
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -129,32 +143,33 @@ export default function ExecutionDetail() {
           </Card>
         </div>
 
+        {/* Error Details */}
         {currentExecution.error && (
-          <Card className="border-red-500">
+          <Card className="border-destructive bg-destructive/5">
             <CardHeader>
-              <CardTitle className="text-red-500 flex items-center gap-2">
-                <XCircle className="h-5 w-5" />
+              <CardTitle className="text-destructive flex items-center gap-2">
+                <AlertCircle className="h-5 w-5" />
                 Error Details
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <div>
-                  <p className="text-sm font-medium mb-1">Message:</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm font-medium mb-2">Message:</p>
+                  <p className="text-sm text-muted-foreground bg-background p-3 rounded-lg">
                     {currentExecution.error.message}
                   </p>
                 </div>
                 {currentExecution.error.node && (
                   <div>
-                    <p className="text-sm font-medium mb-1">Failed Node:</p>
+                    <p className="text-sm font-medium mb-2">Failed Node:</p>
                     <Badge variant="destructive">{currentExecution.error.node}</Badge>
                   </div>
                 )}
                 {currentExecution.error.stack && (
                   <div>
-                    <p className="text-sm font-medium mb-1">Stack Trace:</p>
-                    <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto">
+                    <p className="text-sm font-medium mb-2">Stack Trace:</p>
+                    <pre className="text-xs bg-background p-4 rounded-lg overflow-x-auto max-h-60 scrollbar-hide">
                       {currentExecution.error.stack}
                     </pre>
                   </div>
@@ -164,6 +179,7 @@ export default function ExecutionDetail() {
           </Card>
         )}
 
+        {/* Node Execution Results */}
         <Card>
           <CardHeader>
             <CardTitle>Node Execution Results</CardTitle>
@@ -174,16 +190,16 @@ export default function ExecutionDetail() {
               <div className="space-y-4">
                 {Object.entries(currentExecution.data.resultData.runData).map(
                   ([nodeId, nodeData]) => (
-                    <div key={nodeId} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold text-sm">{nodeId}</h4>
+                    <div key={nodeId} className="border rounded-lg p-4 hover:bg-accent transition-colors">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold">{nodeId}</h4>
                         {nodeData.error ? (
                           <Badge variant="destructive">Error</Badge>
                         ) : (
-                          <Badge variant="default">Success</Badge>
+                          <Badge className="bg-green-500 hover:bg-green-600">Success</Badge>
                         )}
                       </div>
-                      <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-60">
+                      <pre className="text-xs bg-muted p-3 rounded-lg overflow-x-auto max-h-60 scrollbar-hide">
                         {JSON.stringify(nodeData, null, 2)}
                       </pre>
                     </div>
@@ -191,19 +207,21 @@ export default function ExecutionDetail() {
                 )}
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No execution data available</p>
+              <div className="text-center py-12">
+                <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No execution data available</p>
               </div>
             )}
           </CardContent>
         </Card>
 
+        {/* Raw Execution Data */}
         <Card>
           <CardHeader>
             <CardTitle>Raw Execution Data</CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto max-h-96">
+            <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto max-h-96 scrollbar-hide">
               {JSON.stringify(currentExecution, null, 2)}
             </pre>
           </CardContent>
