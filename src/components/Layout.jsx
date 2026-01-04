@@ -23,7 +23,7 @@ export default function Layout({ children }) {
   };
 
   const navLinks = [
-    { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/workflows', label: 'Workflows', icon: GitBranch },
     { path: '/executions', label: 'Executions', icon: Activity },
   ];
@@ -32,7 +32,7 @@ export default function Layout({ children }) {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center px-4">
-          <Link to="/" className="flex items-center space-x-2 mr-6">
+          <Link to="/dashboard" className="flex items-center space-x-2 mr-6">
             <div className="bg-primary text-primary-foreground p-2 rounded-lg shadow-sm">
               <Workflow className="h-5 w-5" />
             </div>

@@ -1,13 +1,14 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import Dashboard from './pages/Dashboard';
+import ExecutionDetail from './pages/ExecutionDetail';
+import Executions from './pages/Executions';
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Workflows from './pages/Workflows';
 import WorkflowEditor from './pages/WorkflowEditor';
-import Executions from './pages/Executions';
-import ExecutionDetail from './pages/ExecutionDetail';
+import Workflows from './pages/Workflows';
 
 function PrivateRoute({ children }) {
   const { token } = useSelector((state) => state.auth);
@@ -20,8 +21,9 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/" element={<Home />} />
         <Route
-          path="/"
+          path="/dashboard"
           element={
             <PrivateRoute>
               <Dashboard />
