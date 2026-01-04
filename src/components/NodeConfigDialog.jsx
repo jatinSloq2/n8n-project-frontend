@@ -1,0 +1,641 @@
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { AlertCircle, Plus, Trash2, Key } from 'lucide-react';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+
+export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave }) {
+  const [config, setConfig] = useState(node?.data?.config || {});
+  const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (node?.data?.config) {
+      setConfig(node.data.config);
+    }
+  }, [node]);
+
+  const validateField = (property, value) => {
+    if (property.required && !value && value !== 0 && value !== false) {
+      return `${property.label} is required`;
+    }
+    
+    // URL validation
+    if (property.type === 'string' && property.name === 'url' && value) {
+      try {
+        new URL(value);
+      } catch {
+        return 'Please enter a valid URL';
+      }
+    }
+    
+    // Email validation
+    if (property.type === 'string' && property.name?.includes('Email') && value) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        return 'Please enter a valid email address';
+      }
+    }
+    
+    return null;
+  };
+
+  const handleSave = () => {
+    const newErrors = {};
+    nodeTemplate.properties?.forEach((property) => {
+      const error = validateField(property, config[property.name]);
+      if (error) {
+        newErrors[property.name] = error;
+      }
+    });
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    onSave(config);
+    onClose();
+  };
+
+  const updateConfig = (name, value) => {
+    setConfig({ ...config, [name]: value });
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: null });
+    }
+  };
+
+  // Key-Value pair management
+  const addKeyValuePair = (fieldName) => {
+    const current = config[fieldName] || {};
+    const newKey = `key${Object.keys(current).length + 1}`;
+    updateConfig(fieldName, { ...current, [newKey]: '' });
+  };
+
+  const updateKeyValuePair = (fieldName, oldKey, newKey, value) => {
+    const current = config[fieldName] || {};
+    const updated = { ...current };
+    
+    if (oldKey !== newKey && oldKey in updated) {
+      delete updated[oldKey];
+    }
+    updated[newKey] = value;
+    
+    updateConfig(fieldName, updated);
+  };
+
+  const removeKeyValuePair = (fieldName, key) => {
+    const current = config[fieldName] || {};
+    const updated = { ...current };
+    delete updated[key];
+    updateConfig(fieldName, updated);
+  };
+
+  // Array management
+  const addArrayItem = (fieldName) => {
+    const current = config[fieldName] || [];
+    updateConfig(fieldName, [...current, '']);
+  };
+
+  const updateArrayItem = (fieldName, index, value) => {
+    const current = config[fieldName] || [];
+    const updated = [...current];
+    updated[index] = value;
+    updateConfig(fieldName, updated);
+  };
+
+  const removeArrayItem = (fieldName, index) => {
+    const current = config[fieldName] || [];
+    const updated = current.filter((_, i) => i !== index);
+    updateConfig(fieldName, updated);
+  };
+
+  // Condition management
+  const addCondition = (fieldName) => {
+    const current = config[fieldName] || [];
+    updateConfig(fieldName, [
+      ...current,
+      { field: '', operator: 'equals', value: '' }
+    ]);
+  };
+
+  const updateCondition = (fieldName, index, field, value) => {
+    const current = config[fieldName] || [];
+    const updated = [...current];
+    updated[index] = { ...updated[index], [field]: value };
+    updateConfig(fieldName, updated);
+  };
+
+  const removeCondition = (fieldName, index) => {
+    const current = config[fieldName] || [];
+    const updated = current.filter((_, i) => i !== index);
+    updateConfig(fieldName, updated);
+  };
+
+  const renderField = (property) => {
+    const value = config[property.name] ?? property.default ?? '';
+    const hasError = errors[property.name];
+
+    switch (property.type) {
+      case 'string':
+        return (
+          <div className="space-y-2">
+            <Input
+              value={value}
+              onChange={(e) => updateConfig(property.name, e.target.value)}
+              placeholder={property.placeholder || `Enter ${property.label.toLowerCase()}`}
+              className={hasError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {hasError}
+              </p>
+            )}
+          </div>
+        );
+
+      case 'text':
+      case 'code':
+        return (
+          <div className="space-y-2">
+            <Textarea
+              value={value}
+              onChange={(e) => updateConfig(property.name, e.target.value)}
+              placeholder={property.placeholder || `Enter ${property.label.toLowerCase()}`}
+              className={`min-h-[120px] ${property.type === 'code' ? 'font-mono text-sm' : ''} ${
+                hasError ? 'border-red-500 focus-visible:ring-red-500' : ''
+              }`}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {hasError}
+              </p>
+            )}
+          </div>
+        );
+
+      case 'number':
+        return (
+          <div className="space-y-2">
+            <Input
+              type="number"
+              value={value}
+              onChange={(e) => {
+                const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                updateConfig(property.name, val);
+              }}
+              placeholder={property.placeholder || '0'}
+              step={property.step || 'any'}
+              min={property.min}
+              max={property.max}
+              className={hasError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {hasError}
+              </p>
+            )}
+          </div>
+        );
+
+      case 'select':
+        return (
+          <div className="space-y-2">
+            <Select
+              value={value || ''}
+              onValueChange={(val) => updateConfig(property.name, val)}
+            >
+              <SelectTrigger className={hasError ? 'border-red-500 focus:ring-red-500' : ''}>
+                <SelectValue placeholder={`Select ${property.label.toLowerCase()}`} />
+              </SelectTrigger>
+              <SelectContent>
+                {property.options?.map((opt) => (
+                  <SelectItem key={opt} value={opt}>
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {hasError && (
+              <p className="text-xs text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {hasError}
+              </p>
+            )}
+          </div>
+        );
+
+      case 'boolean':
+        return (
+          <div className="flex items-center justify-between space-x-2 rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">
+                {property.label}
+              </Label>
+              {property.description && (
+                <p className="text-xs text-muted-foreground">
+                  {property.description}
+                </p>
+              )}
+            </div>
+            <Switch
+              checked={!!value}
+              onCheckedChange={(checked) => updateConfig(property.name, checked)}
+            />
+          </div>
+        );
+
+      case 'json':
+        return (
+          <div className="space-y-2">
+            <Textarea
+              value={typeof value === 'object' ? JSON.stringify(value, null, 2) : value}
+              onChange={(e) => {
+                try {
+                  const parsed = JSON.parse(e.target.value);
+                  updateConfig(property.name, parsed);
+                } catch {
+                  updateConfig(property.name, e.target.value);
+                }
+              }}
+              placeholder={property.placeholder || '{\n  "key": "value"\n}'}
+              className={`min-h-[120px] font-mono text-sm ${
+                hasError ? 'border-red-500 focus-visible:ring-red-500' : ''
+              }`}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {hasError}
+              </p>
+            )}
+          </div>
+        );
+
+      case 'keyValue':
+        const kvPairs = value || {};
+        return (
+          <div className="space-y-2">
+            <Card className="p-3 space-y-2">
+              {Object.entries(kvPairs).length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  No values set. Click "Add Value" to get started.
+                </p>
+              ) : (
+                Object.entries(kvPairs).map(([key, val], idx) => (
+                  <div key={idx} className="flex gap-2 items-start">
+                    <Input
+                      value={key}
+                      onChange={(e) => updateKeyValuePair(property.name, key, e.target.value, val)}
+                      placeholder="Key"
+                      className="flex-1"
+                    />
+                    <Input
+                      value={val}
+                      onChange={(e) => updateKeyValuePair(property.name, key, key, e.target.value)}
+                      placeholder="Value"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeKeyValuePair(property.name, key)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </Card>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addKeyValuePair(property.name)}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Value
+            </Button>
+          </div>
+        );
+
+      case 'array':
+        const arrItems = value || [];
+        return (
+          <div className="space-y-2">
+            <Card className="p-3 space-y-2">
+              {arrItems.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  No items added yet.
+                </p>
+              ) : (
+                arrItems.map((item, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <Input
+                      value={item}
+                      onChange={(e) => updateArrayItem(property.name, idx, e.target.value)}
+                      placeholder={`Item ${idx + 1}`}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeArrayItem(property.name, idx)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </Card>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addArrayItem(property.name)}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Item
+            </Button>
+          </div>
+        );
+
+      case 'conditions':
+        const conditions = value || [];
+        return (
+          <div className="space-y-2">
+            <Card className="p-3 space-y-3">
+              {conditions.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  No conditions set. Click "Add Condition" to get started.
+                </p>
+              ) : (
+                conditions.map((condition, idx) => (
+                  <div key={idx} className="space-y-2 pb-3 border-b last:border-0 last:pb-0">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-xs font-medium">Condition {idx + 1}</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeCondition(property.name, idx)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Input
+                        value={condition.field || ''}
+                        onChange={(e) => updateCondition(property.name, idx, 'field', e.target.value)}
+                        placeholder="Field"
+                      />
+                      <Select
+                        value={condition.operator || 'equals'}
+                        onValueChange={(val) => updateCondition(property.name, idx, 'operator', val)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="equals">Equals</SelectItem>
+                          <SelectItem value="notEquals">Not Equals</SelectItem>
+                          <SelectItem value="contains">Contains</SelectItem>
+                          <SelectItem value="greaterThan">Greater Than</SelectItem>
+                          <SelectItem value="lessThan">Less Than</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={condition.value || ''}
+                        onChange={(e) => updateCondition(property.name, idx, 'value', e.target.value)}
+                        placeholder="Value"
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </Card>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addCondition(property.name)}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Condition
+            </Button>
+          </div>
+        );
+
+      default:
+        return (
+          <div className="space-y-2">
+            <Input
+              value={value}
+              onChange={(e) => updateConfig(property.name, e.target.value)}
+              placeholder={property.placeholder || `Enter ${property.label.toLowerCase()}`}
+              className={hasError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {hasError}
+              </p>
+            )}
+          </div>
+        );
+    }
+  };
+
+  if (!node || !nodeTemplate) return null;
+
+  // Check if node has authentication properties
+  const hasAuthProps = nodeTemplate.properties?.some(p => p.name === 'authentication');
+  const authProperties = hasAuthProps ? 
+    nodeTemplate.properties.filter(p => 
+      ['authentication', 'username', 'password', 'apiKey', 'apiKeyHeader'].includes(p.name)
+    ) : [];
+  const regularProperties = nodeTemplate.properties?.filter(p => 
+    !['authentication', 'username', 'password', 'apiKey', 'apiKeyHeader'].includes(p.name)
+  ) || [];
+
+  return (
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[90vh]">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+              <span className="text-2xl">{nodeTemplate.icon}</span>
+            </div>
+            <div className="flex-1">
+              <DialogTitle className="text-xl">
+                Configure {nodeTemplate.name}
+              </DialogTitle>
+              <DialogDescription className="mt-1">
+                {nodeTemplate.description}
+              </DialogDescription>
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {nodeTemplate.category}
+            </Badge>
+          </div>
+        </DialogHeader>
+
+        <ScrollArea className="max-h-[calc(90vh-200px)] pr-4">
+          {hasAuthProps ? (
+            <Tabs defaultValue="config" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="config">Configuration</TabsTrigger>
+                <TabsTrigger value="auth">
+                  <Key className="h-3 w-3 mr-2" />
+                  Authentication
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="config" className="space-y-6 py-4">
+                {regularProperties.length > 0 ? (
+                  regularProperties.map((property) => (
+                    <div key={property.name} className="space-y-3">
+                      {property.type !== 'boolean' && (
+                        <div className="space-y-1.5">
+                          <Label htmlFor={property.name} className="text-sm font-medium">
+                            {property.label}
+                            {property.required && (
+                              <span className="text-red-500 ml-1">*</span>
+                            )}
+                          </Label>
+                          {property.description && property.type !== 'boolean' && (
+                            <p className="text-xs text-muted-foreground">
+                              {property.description}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {renderField(property)}
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      All configuration is in the Authentication tab
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="auth" className="space-y-6 py-4">
+                <Card className="p-4 bg-muted/50">
+                  <div className="flex items-start gap-2 text-sm">
+                    <AlertCircle className="h-4 w-4 mt-0.5 text-amber-500" />
+                    <div>
+                      <p className="font-medium">Credentials Required</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Configure authentication to use this node
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+                {authProperties.map((property) => (
+                  <div key={property.name} className="space-y-3">
+                    {property.type !== 'boolean' && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor={property.name} className="text-sm font-medium">
+                          {property.label}
+                          {property.required && (
+                            <span className="text-red-500 ml-1">*</span>
+                          )}
+                        </Label>
+                        {property.description && (
+                          <p className="text-xs text-muted-foreground">
+                            {property.description}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {renderField(property)}
+                  </div>
+                ))}
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="space-y-6 py-4">
+              {nodeTemplate.properties?.length > 0 ? (
+                nodeTemplate.properties.map((property) => (
+                  <div key={property.name} className="space-y-3">
+                    {property.type !== 'boolean' && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor={property.name} className="text-sm font-medium">
+                          {property.label}
+                          {property.required && (
+                            <span className="text-red-500 ml-1">*</span>
+                          )}
+                        </Label>
+                        {property.description && property.type !== 'boolean' && (
+                          <p className="text-xs text-muted-foreground">
+                            {property.description}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {renderField(property)}
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="rounded-full bg-muted p-3 mb-3">
+                    <AlertCircle className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium">No configuration needed</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    This node works without any additional settings
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </ScrollArea>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>
+            Save Configuration
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

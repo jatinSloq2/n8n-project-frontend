@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
 const API_URL = `${import.meta.env.VITE_BASE_URL}/workflows`;
+const API_URL_EXECUTE = `${import.meta.env.VITE_BASE_URL}/executions`;
 
 const initialState = {
   workflows: [],
@@ -89,7 +90,7 @@ export const executeWorkflow = createAsyncThunk(
     try {
       const token = thunkAPI.getState().auth.token;
       const response = await axios.post(
-        `${API_URL}/${id}/execute`,
+        `${API_URL_EXECUTE}/${id}/execute`,
         executionData,
         getConfig(token)
       );

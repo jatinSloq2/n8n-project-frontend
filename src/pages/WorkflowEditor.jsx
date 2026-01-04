@@ -1,50 +1,106 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { toast } from 'sonner';
-import ReactFlow, {
-  Controls,
-  Background,
-  applyNodeChanges,
-  applyEdgeChanges,
-  addEdge,
-  BackgroundVariant,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
 import Layout from '@/components/Layout';
+import { NodeConfigDialog } from '@/components/NodeConfigDialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { getNodeTemplates } from '@/store/slices/nodeSlice';
 import {
+  executeWorkflow,
   getWorkflow,
   updateWorkflow,
-  executeWorkflow,
 } from '@/store/slices/workflowSlice';
-import { getNodeTemplates } from '@/store/slices/nodeSlice';
-import { Save, Play, ArrowLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Settings, Trash2, Zap } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate, useParams } from 'react-router-dom';
+import ReactFlow, {
+  addEdge,
+  applyEdgeChanges,
+  applyNodeChanges,
+  Background,
+  BackgroundVariant,
+  Controls,
+  Handle,
+  MarkerType,
+  MiniMap,
+  Position,
+} from 'reactflow';
+import 'reactflow/dist/style.css';
+import { toast } from 'sonner';
 
+// Custom Node Component with proper handles
 function CustomNode({ data, selected }) {
   return (
     <div
-      className={`px-4 py-3 shadow-lg rounded-lg border-2 bg-card min-w-[180px] ${
-        selected ? 'ring-2 ring-primary' : ''
+      className={`px-4 py-3 shadow-lg rounded-lg border-2 bg-card min-w-[200px] relative ${
+        selected ? 'ring-2 ring-primary ring-offset-2' : ''
       }`}
       style={{ borderColor: data.color || '#6B7280' }}
     >
-      <div className="flex items-center space-x-2">
-        <span className="text-2xl">{data.icon || '📦'}</span>
+      {/* Input Handle */}
+      {data.inputs > 0 && (
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="!w-3 !h-3 !bg-blue-500 !border-2 !border-white"
+        />
+      )}
+
+      <div className="flex items-center space-x-3">
+        <div className="text-3xl">{data.icon || '📦'}</div>
         <div className="flex-1">
-          <div className="text-sm font-bold">{data.label}</div>
+          <div className="text-sm font-bold text-foreground">{data.label}</div>
           <div className="text-xs text-muted-foreground">{data.type}</div>
         </div>
       </div>
+
+      {data.description && (
+        <div className="text-xs text-muted-foreground mt-2 line-clamp-2">
+          {data.description}
+        </div>
+      )}
+
+      {/* Configuration Badge */}
+      {data.config && Object.keys(data.config).length > 0 && (
+        <div className="absolute top-2 right-2">
+          <Badge variant="secondary" className="text-xs">
+            <Settings className="h-3 w-3" />
+          </Badge>
+        </div>
+      )}
+
+      {/* Output Handle */}
+      {data.outputs > 0 && (
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="!w-3 !h-3 !bg-green-500 !border-2 !border-white"
+        />
+      )}
     </div>
   );
 }
 
 const nodeTypes = {
   custom: CustomNode,
+};
+
+// Default edge style
+const defaultEdgeOptions = {
+  type: 'smoothstep',
+  animated: true,
+  markerEnd: {
+    type: MarkerType.ArrowClosed,
+    width: 20,
+    height: 20,
+    color: '#6B7280',
+  },
+  style: {
+    strokeWidth: 2,
+    stroke: '#6B7280',
+  },
 };
 
 export default function WorkflowEditor() {
@@ -61,6 +117,8 @@ export default function WorkflowEditor() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showConfigDialog, setShowConfigDialog] = useState(false);
 
   useEffect(() => {
     dispatch(getWorkflow(id));
@@ -72,18 +130,25 @@ export default function WorkflowEditor() {
       setWorkflowName(currentWorkflow.name);
       setWorkflowDescription(currentWorkflow.description || '');
 
-      const flowNodes = (currentWorkflow.nodes || []).map((node) => ({
-        id: node.id,
-        type: 'custom',
-        position: node.position,
-        data: {
-          ...node.data,
-          label: node.data.label || node.type,
-          icon: getNodeIcon(node.type),
-          color: getNodeColor(node.type),
-          type: node.type,
-        },
-      }));
+      const flowNodes = (currentWorkflow.nodes || []).map((node) => {
+        const template = getNodeTemplate(node.type);
+        return {
+          id: node.id,
+          type: 'custom',
+          position: node.position,
+          data: {
+            ...node.data,
+            label: node.data.label || getNodeName(node.type),
+            icon: getNodeIcon(node.type),
+            color: getNodeColor(node.type),
+            type: node.type,
+            description: getNodeDescription(node.type),
+            config: node.data.config || {},
+            inputs: template?.inputs || 1,
+            outputs: template?.outputs || 1,
+          },
+        };
+      });
 
       const flowEdges = (currentWorkflow.connections || []).map((conn, idx) => ({
         id: conn.id || `edge-${idx}`,
@@ -91,21 +156,36 @@ export default function WorkflowEditor() {
         target: conn.target,
         sourceHandle: conn.sourceHandle,
         targetHandle: conn.targetHandle,
+        ...defaultEdgeOptions,
       }));
 
       setNodes(flowNodes);
       setEdges(flowEdges);
     }
-  }, [currentWorkflow]);
+  }, [currentWorkflow, nodeTemplates]);
+
+  const getNodeTemplate = (type) => {
+    return nodeTemplates.find((t) => t.id === type || t.type === type);
+  };
 
   const getNodeIcon = (type) => {
-    const template = nodeTemplates.find((t) => t.id === type || t.type === type);
+    const template = getNodeTemplate(type);
     return template?.icon || '📦';
   };
 
   const getNodeColor = (type) => {
-    const template = nodeTemplates.find((t) => t.id === type || t.type === type);
+    const template = getNodeTemplate(type);
     return template?.color || '#6B7280';
+  };
+
+  const getNodeName = (type) => {
+    const template = getNodeTemplate(type);
+    return template?.name || type;
+  };
+
+  const getNodeDescription = (type) => {
+    const template = getNodeTemplate(type);
+    return template?.description || '';
   };
 
   const onNodesChange = useCallback(
@@ -119,12 +199,25 @@ export default function WorkflowEditor() {
   );
 
   const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
+    (params) => {
+      const newEdge = {
+        ...params,
+        ...defaultEdgeOptions,
+        id: `edge-${Date.now()}`,
+      };
+      setEdges((eds) => addEdge(newEdge, eds));
+      toast.success('✅ Nodes connected');
+    },
     []
   );
 
   const onNodeClick = useCallback((event, node) => {
     setSelectedNode(node);
+  }, []);
+
+  const onNodeDoubleClick = useCallback((event, node) => {
+    setSelectedNode(node);
+    setShowConfigDialog(true);
   }, []);
 
   const handleSave = async () => {
@@ -134,7 +227,14 @@ export default function WorkflowEditor() {
         id: node.id,
         type: node.data.type,
         position: node.position,
-        data: node.data,
+        data: {
+          label: node.data.label,
+          type: node.data.type,
+          config: node.data.config || {},
+          icon: node.data.icon,
+          color: node.data.color,
+          description: node.data.description,
+        },
       }));
 
       const backendConnections = edges.map((edge) => ({
@@ -157,23 +257,28 @@ export default function WorkflowEditor() {
         })
       ).unwrap();
       
-      toast.success('Workflow saved successfully');
+      toast.success('✅ Workflow saved successfully');
     } catch (error) {
-      toast.error('Failed to save workflow');
+      toast.error('❌ Failed to save workflow: ' + error);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleExecute = async () => {
+    if (nodes.length === 0) {
+      toast.error('❌ Add at least one node to execute');
+      return;
+    }
+
     setIsExecuting(true);
     try {
       await handleSave();
       await dispatch(executeWorkflow({ id, executionData: {} })).unwrap();
-      toast.success('Workflow execution started');
-      navigate('/executions');
+      toast.success('✅ Workflow execution started');
+      setTimeout(() => navigate('/executions'), 1000);
     } catch (error) {
-      toast.error('Failed to execute workflow');
+      toast.error('❌ Failed to execute workflow: ' + error);
     } finally {
       setIsExecuting(false);
     }
@@ -183,16 +288,23 @@ export default function WorkflowEditor() {
     const newNode = {
       id: `node-${Date.now()}`,
       type: 'custom',
-      position: { x: 250, y: 250 },
+      position: { 
+        x: Math.random() * 400 + 100, 
+        y: Math.random() * 300 + 100 
+      },
       data: {
         label: template.name,
         icon: template.icon,
         color: template.color,
         type: template.id || template.type,
+        description: template.description,
+        config: {},
+        inputs: template.inputs || 1,
+        outputs: template.outputs || 1,
       },
     };
     setNodes((nds) => [...nds, newNode]);
-    toast.success(`Added ${template.name} node`);
+    toast.success(`✅ Added ${template.name}`);
   };
 
   const deleteSelectedNode = () => {
@@ -202,15 +314,49 @@ export default function WorkflowEditor() {
         eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id)
       );
       setSelectedNode(null);
-      toast.success('Node deleted');
+      toast.success('🗑️ Node deleted');
     }
   };
+
+  const handleConfigSave = (config) => {
+    if (selectedNode) {
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === selectedNode.id
+            ? { ...n, data: { ...n.data, config } }
+            : n
+        )
+      );
+      setSelectedNode({
+        ...selectedNode,
+        data: { ...selectedNode.data, config },
+      });
+      toast.success('✅ Configuration saved');
+    }
+  };
+
+  const filteredTemplates = nodeTemplates.filter((template) =>
+    template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    template.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const groupedNodes = filteredTemplates.reduce((acc, template) => {
+    const category = template.category || 'other';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(template);
+    return acc;
+  }, {});
 
   if (isLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading workflow...</p>
+          </div>
         </div>
       </Layout>
     );
@@ -229,53 +375,86 @@ export default function WorkflowEditor() {
                 value={workflowName}
                 onChange={(e) => setWorkflowName(e.target.value)}
                 placeholder="Workflow name"
-                className="font-semibold"
+                className="font-semibold text-lg"
               />
             </div>
+            <Badge variant={nodes.length > 0 ? 'default' : 'secondary'}>
+              {nodes.length} nodes
+            </Badge>
+            <Badge variant={edges.length > 0 ? 'default' : 'secondary'}>
+              {edges.length} connections
+            </Badge>
           </div>
           <div className="flex items-center space-x-2">
             {selectedNode && (
-              <Button variant="outline" size="sm" onClick={deleteSelectedNode}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Node
-              </Button>
+              <>
+                <Button variant="outline" size="sm" onClick={() => setShowConfigDialog(true)}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Configure
+                </Button>
+                <Button variant="destructive" size="sm" onClick={deleteSelectedNode}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              </>
             )}
             <Button variant="outline" onClick={handleSave} disabled={isSaving}>
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Saving...' : 'Save'}
             </Button>
             <Button onClick={handleExecute} disabled={isExecuting}>
-              <Play className="h-4 w-4 mr-2" />
+              <Zap className="h-4 w-4 mr-2" />
               {isExecuting ? 'Executing...' : 'Execute'}
             </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-12 gap-4" style={{ height: 'calc(100vh - 220px)' }}>
-          <Card className="col-span-2 p-4 overflow-y-auto">
-            <h3 className="font-semibold mb-4 text-sm">Node Palette</h3>
-            <div className="space-y-2">
-              {nodeTemplates.map((template) => (
-                <button
-                  key={template.id || template.type}
-                  onClick={() => addNode(template)}
-                  className="w-full p-3 text-left border rounded-lg hover:bg-accent transition-colors"
-                >
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xl">{template.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium truncate">{template.name}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">
-                        {template.category}
-                      </div>
-                    </div>
+          <Card className="col-span-3 p-4 overflow-y-auto">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-lg mb-2">Nodes</h3>
+                <Input
+                  placeholder="Search nodes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="mb-3"
+                />
+              </div>
+
+              {Object.entries(groupedNodes).map(([category, templates]) => (
+                <div key={category} className="space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                    {category}
+                  </h4>
+                  <div className="space-y-2">
+                    {templates.map((template) => (
+                      <button
+                        key={template.id || template.type}
+                        onClick={() => addNode(template)}
+                        className="w-full p-3 text-left border rounded-lg hover:bg-accent hover:border-primary transition-all group"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <span className="text-2xl group-hover:scale-110 transition-transform">
+                            {template.icon}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{template.name}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {template.description}
+                            </div>
+                          </div>
+                          <Plus className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </Card>
 
-          <div className="col-span-8 border rounded-lg overflow-hidden bg-background">
+          <div className="col-span-7 border-2 rounded-lg overflow-hidden bg-background">
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -283,81 +462,92 @@ export default function WorkflowEditor() {
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onNodeClick={onNodeClick}
+              onNodeDoubleClick={onNodeDoubleClick}
               nodeTypes={nodeTypes}
+              defaultEdgeOptions={defaultEdgeOptions}
               fitView
+              snapToGrid
+              snapGrid={[15, 15]}
               className="bg-background"
             >
               <Controls />
-              <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
+              <MiniMap />
+              <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
             </ReactFlow>
           </div>
 
           <Card className="col-span-2 p-4 overflow-y-auto">
-            <h3 className="font-semibold mb-4 text-sm">Properties</h3>
+            <h3 className="font-semibold mb-4">Properties</h3>
             {selectedNode ? (
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-medium">Node ID</label>
-                  <p className="text-xs text-muted-foreground mt-1 break-all">
-                    {selectedNode.id}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium">Node Type</label>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <label className="text-xs font-medium text-muted-foreground">Node Type</label>
+                  <p className="text-sm font-semibold mt-1 flex items-center gap-2">
+                    <span className="text-xl">{selectedNode.data.icon}</span>
                     {selectedNode.data.type}
                   </p>
                 </div>
                 <div>
                   <label className="text-xs font-medium mb-1 block">Label</label>
                   <Input
-                    value={selectedNode.data.label}
+                    value={selectedNode.data.label || ''}
                     onChange={(e) => {
+                      const newLabel = e.target.value;
                       setNodes((nds) =>
                         nds.map((n) =>
                           n.id === selectedNode.id
-                            ? { ...n, data: { ...n.data, label: e.target.value } }
+                            ? { ...n, data: { ...n.data, label: newLabel } }
                             : n
                         )
                       );
                       setSelectedNode({
                         ...selectedNode,
-                        data: { ...selectedNode.data, label: e.target.value },
+                        data: { ...selectedNode.data, label: newLabel },
                       });
                     }}
-                    className="text-xs"
+                    className="text-sm"
                   />
                 </div>
-                <div>
-                  <label className="text-xs font-medium">Position</label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    X: {Math.round(selectedNode.position.x)}, Y:{' '}
-                    {Math.round(selectedNode.position.y)}
-                  </p>
-                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => setShowConfigDialog(true)}
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  Configure Node
+                </Button>
+                {selectedNode.data.config && Object.keys(selectedNode.data.config).length > 0 && (
+                  <div className="p-2 bg-muted rounded text-xs">
+                    <p className="font-medium mb-1">Configuration:</p>
+                    <pre className="overflow-x-auto">
+                      {JSON.stringify(selectedNode.data.config, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </div>
             ) : (
-              <div>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Select a node to view properties
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Double-click a node to configure it
                 </p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-medium mb-1 block">Description</label>
-                    <Textarea
-                      value={workflowDescription}
-                      onChange={(e) => setWorkflowDescription(e.target.value)}
-                      placeholder="Workflow description..."
-                      className="text-xs min-h-[80px]"
-                    />
-                  </div>
-                  <div className="pt-2 border-t">
-                    <p className="text-xs font-medium mb-2">Stats</p>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Description</label>
+                  <Textarea
+                    value={workflowDescription}
+                    onChange={(e) => setWorkflowDescription(e.target.value)}
+                    placeholder="Add workflow description..."
+                    className="text-sm min-h-[100px]"
+                  />
+                </div>
+                <div className="pt-3 border-t space-y-2">
+                  <p className="text-sm font-medium">Workflow Stats</p>
+                  <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">
-                      Nodes: {nodes.length}
+                      📦 Nodes: {nodes.length}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Connections: {edges.length}
+                      🔗 Connections: {edges.length}
                     </p>
                   </div>
                 </div>
@@ -366,6 +556,15 @@ export default function WorkflowEditor() {
           </Card>
         </div>
       </div>
+
+      {showConfigDialog && selectedNode && (
+        <NodeConfigDialog
+          node={selectedNode}
+          nodeTemplate={getNodeTemplate(selectedNode.data.type)}
+          onClose={() => setShowConfigDialog(false)}
+          onSave={handleConfigSave}
+        />
+      )}
     </Layout>
   );
 }
