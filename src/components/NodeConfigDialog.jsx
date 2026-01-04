@@ -1,8 +1,17 @@
-import { useState, useEffect } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -12,27 +21,128 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import { AlertCircle, Plus, Trash2, Key } from 'lucide-react';
-import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { AlertCircle, Code2, Key, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
-export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave }) {
+// Expression Input Component
+function ExpressionInput({ value, onChange, availableNodes, placeholder }) {
+  const [showHelper, setShowHelper] = useState(false);
+
+  const insertExpression = (nodeId, path) => {
+    const expression = `{{$node.${nodeId}.${path}}}`;
+    const currentValue = value || '';
+    // Insert at cursor position or append
+    onChange(currentValue + expression);
+    setShowHelper(false);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <Textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder || "Enter value or use {{expressions}}"}
+          className="font-mono text-sm pr-10"
+          rows={3}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="absolute top-2 right-2"
+          onClick={() => setShowHelper(!showHelper)}
+          title="Insert expression from previous nodes"
+        >
+          <Code2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {showHelper && availableNodes.length > 0 && (
+        <Card className="p-3 border-2 border-primary/20">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium">Available Node Data:</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowHelper(false)}
+              className="h-6 px-2"
+            >
+              Close
+            </Button>
+          </div>
+          <ScrollArea className="max-h-48">
+            <div className="space-y-2">
+              <button
+                className="w-full text-left text-xs p-2 hover:bg-muted rounded border"
+                onClick={() => {
+                  onChange((value || '') + '{{$input.fieldName}}');
+                  setShowHelper(false);
+                }}
+              >
+                <span className="font-medium text-primary">Workflow Input</span>
+                <br />
+                <code className="text-xs text-muted-foreground">
+                  {'{{$input.fieldName}}'} - Access workflow input data
+                </code>
+              </button>
+              {availableNodes.map((node) => (
+                <button
+                  key={node.id}
+                  className="w-full text-left text-xs p-2 hover:bg-muted rounded border"
+                  onClick={() => insertExpression(node.id, 'data')}
+                >
+                  <span className="font-medium">{node.data.label}</span>
+                  <br />
+                  <code className="text-xs text-muted-foreground">
+                    {`{{$node.${node.id}.data}}`}
+                  </code>
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+          <div className="mt-3 pt-3 border-t">
+            <p className="text-xs text-muted-foreground">
+              <strong>Examples:</strong>
+              <br />• <code>{'{{$node.node_123.data.name}}'}</code> - Access specific field
+              <br />• <code>{'{{$input.userId}}'}</code> - Workflow input field
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {showHelper && availableNodes.length === 0 && (
+        <Card className="p-3">
+          <p className="text-xs text-muted-foreground text-center">
+            No previous nodes available. Connect nodes first to use expressions.
+          </p>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes, connections }) {
   const [config, setConfig] = useState(node?.data?.config || {});
   const [errors, setErrors] = useState({});
+
+  // Get nodes that come before this node in the workflow
+  const getPreviousNodes = () => {
+    if (!node || !allNodes || !connections) return [];
+
+    const incomingConnections = connections.filter(c => c.target === node.id);
+    const sourceNodeIds = incomingConnections.map(c => c.source);
+
+    return allNodes.filter(n => sourceNodeIds.includes(n.id));
+  };
+
+  const availableNodes = getPreviousNodes();
 
   useEffect(() => {
     if (node?.data?.config) {
@@ -44,24 +154,29 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave }) {
     if (property.required && !value && value !== 0 && value !== false) {
       return `${property.label} is required`;
     }
-    
-    // URL validation
+
     if (property.type === 'string' && property.name === 'url' && value) {
+      // Skip validation if it contains expressions
+      if (value.includes('{{') && value.includes('}}')) {
+        return null;
+      }
       try {
         new URL(value);
       } catch {
-        return 'Please enter a valid URL';
+        return 'Please enter a valid URL or use an expression';
       }
     }
-    
-    // Email validation
+
     if (property.type === 'string' && property.name?.includes('Email') && value) {
+      if (value.includes('{{') && value.includes('}}')) {
+        return null;
+      }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(value)) {
-        return 'Please enter a valid email address';
+        return 'Please enter a valid email address or use an expression';
       }
     }
-    
+
     return null;
   };
 
@@ -90,6 +205,11 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave }) {
     }
   };
 
+  // Helper to determine if a field supports expressions
+  const supportsExpressions = (property) => {
+    return ['string', 'text', 'code'].includes(property.type);
+  };
+
   // Key-Value pair management
   const addKeyValuePair = (fieldName) => {
     const current = config[fieldName] || {};
@@ -100,12 +220,10 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave }) {
   const updateKeyValuePair = (fieldName, oldKey, newKey, value) => {
     const current = config[fieldName] || {};
     const updated = { ...current };
-    
     if (oldKey !== newKey && oldKey in updated) {
       delete updated[oldKey];
     }
     updated[newKey] = value;
-    
     updateConfig(fieldName, updated);
   };
 
@@ -160,9 +278,20 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave }) {
   const renderField = (property) => {
     const value = config[property.name] ?? property.default ?? '';
     const hasError = errors[property.name];
+    const canUseExpressions = supportsExpressions(property);
 
     switch (property.type) {
       case 'string':
+        if (canUseExpressions && availableNodes.length > 0) {
+          return (
+            <ExpressionInput
+              value={value}
+              onChange={(val) => updateConfig(property.name, val)}
+              availableNodes={availableNodes}
+              placeholder={property.placeholder || `Enter ${property.label.toLowerCase()} or use expressions`}
+            />
+          );
+        }
         return (
           <div className="space-y-2">
             <Input
@@ -182,15 +311,24 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave }) {
 
       case 'text':
       case 'code':
+        if (canUseExpressions && availableNodes.length > 0) {
+          return (
+            <ExpressionInput
+              value={value}
+              onChange={(val) => updateConfig(property.name, val)}
+              availableNodes={availableNodes}
+              placeholder={property.placeholder || `Enter ${property.label.toLowerCase()} or use expressions`}
+            />
+          );
+        }
         return (
           <div className="space-y-2">
             <Textarea
               value={value}
               onChange={(e) => updateConfig(property.name, e.target.value)}
               placeholder={property.placeholder || `Enter ${property.label.toLowerCase()}`}
-              className={`min-h-[120px] ${property.type === 'code' ? 'font-mono text-sm' : ''} ${
-                hasError ? 'border-red-500 focus-visible:ring-red-500' : ''
-              }`}
+              className={`min-h-[120px] ${property.type === 'code' ? 'font-mono text-sm' : ''} ${hasError ? 'border-red-500 focus-visible:ring-red-500' : ''
+                }`}
             />
             {hasError && (
               <p className="text-xs text-red-500 flex items-center gap-1">
@@ -287,9 +425,8 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave }) {
                 }
               }}
               placeholder={property.placeholder || '{\n  "key": "value"\n}'}
-              className={`min-h-[120px] font-mono text-sm ${
-                hasError ? 'border-red-500 focus-visible:ring-red-500' : ''
-              }`}
+              className={`min-h-[120px] font-mono text-sm ${hasError ? 'border-red-500 focus-visible:ring-red-500' : ''
+                }`}
             />
             {hasError && (
               <p className="text-xs text-red-500 flex items-center gap-1">
@@ -321,7 +458,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave }) {
                     <Input
                       value={val}
                       onChange={(e) => updateKeyValuePair(property.name, key, key, e.target.value)}
-                      placeholder="Value"
+                      placeholder="Value (supports expressions)"
                       className="flex-1"
                     />
                     <Button
@@ -481,14 +618,13 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave }) {
 
   if (!node || !nodeTemplate) return null;
 
-  // Check if node has authentication properties
   const hasAuthProps = nodeTemplate.properties?.some(p => p.name === 'authentication');
-  const authProperties = hasAuthProps ? 
-    nodeTemplate.properties.filter(p => 
-      ['authentication', 'username', 'password', 'apiKey', 'apiKeyHeader'].includes(p.name)
+  const authProperties = hasAuthProps ?
+    nodeTemplate.properties.filter(p =>
+      ['authentication', 'username', 'password', 'apiKey', 'apiKeyHeader', 'smtpUser', 'smtpPassword', 'webhookUrl', 'botToken'].includes(p.name)
     ) : [];
-  const regularProperties = nodeTemplate.properties?.filter(p => 
-    !['authentication', 'username', 'password', 'apiKey', 'apiKeyHeader'].includes(p.name)
+  const regularProperties = nodeTemplate.properties?.filter(p =>
+    !authProperties.find(ap => ap.name === p.name)
   ) || [];
 
   return (
@@ -513,7 +649,21 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave }) {
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[calc(90vh-200px)] pr-4">
+        {availableNodes.length > 0 && (
+          <Card className="p-3 bg-blue-50 dark:bg-blue-950/20 border-blue-200">
+            <div className="flex items-start gap-2 text-sm">
+              <Code2 className="h-4 w-4 mt-0.5 text-blue-600 dark:text-blue-400" />
+              <div>
+                <p className="font-medium text-blue-900 dark:text-blue-100">Expressions Available</p>
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                  Use <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">{'{{expressions}}'}</code> to reference data from previous nodes
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        <ScrollArea className="max-h-[calc(90vh-250px)] pr-4">
           {hasAuthProps ? (
             <Tabs defaultValue="config" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-4">

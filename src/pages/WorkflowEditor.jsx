@@ -34,9 +34,8 @@ import { toast } from 'sonner';
 function CustomNode({ data, selected }) {
   return (
     <div
-      className={`px-4 py-3 shadow-lg rounded-lg border-2 bg-card min-w-[200px] relative ${
-        selected ? 'ring-2 ring-primary ring-offset-2' : ''
-      }`}
+      className={`px-4 py-3 shadow-lg rounded-lg border-2 bg-card min-w-[200px] relative ${selected ? 'ring-2 ring-primary ring-offset-2' : ''
+        }`}
       style={{ borderColor: data.color || '#6B7280' }}
     >
       {/* Input Handle */}
@@ -256,7 +255,7 @@ export default function WorkflowEditor() {
           },
         })
       ).unwrap();
-      
+
       toast.success('✅ Workflow saved successfully');
     } catch (error) {
       toast.error('❌ Failed to save workflow: ' + error);
@@ -288,9 +287,9 @@ export default function WorkflowEditor() {
     const newNode = {
       id: `node-${Date.now()}`,
       type: 'custom',
-      position: { 
-        x: Math.random() * 400 + 100, 
-        y: Math.random() * 300 + 100 
+      position: {
+        x: Math.random() * 400 + 100,
+        y: Math.random() * 300 + 100
       },
       data: {
         label: template.name,
@@ -508,9 +507,9 @@ export default function WorkflowEditor() {
                     className="text-sm"
                   />
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-full"
                   onClick={() => setShowConfigDialog(true)}
                 >
@@ -563,6 +562,8 @@ export default function WorkflowEditor() {
           nodeTemplate={getNodeTemplate(selectedNode.data.type)}
           onClose={() => setShowConfigDialog(false)}
           onSave={handleConfigSave}
+          allNodes={nodes}  // ← ADD THIS
+          connections={edges}  // ← ADD THIS
         />
       )}
     </Layout>
