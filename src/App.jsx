@@ -62,6 +62,9 @@ function App() {
             </PrivateRoute>
           }
         />
+
+        {/* Catch-all route for 404 */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
       <Toaster position="top-right" />
     </>
