@@ -1012,7 +1012,7 @@ export default function WorkflowEditor() {
                       </p>
                     </div>
 
-                    <div className="pt-3 border-t">
+                    <div className="pt-3 border-t px-1">
                       <label className="text-sm font-medium mb-2 block">
                         Workflow Description
                       </label>
