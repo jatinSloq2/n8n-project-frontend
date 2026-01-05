@@ -1,59 +1,73 @@
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { reset } from '@/store/slices/authSlice';
 import {
     Activity,
+    AlertCircle,
     ArrowRight,
+    ArrowUpRight,
+    Bot,
+    Boxes,
+    Brain,
+    Calendar,
+    CheckCheck,
     CheckCircle,
+    ChevronRight,
     Clock,
+    Code,
+    Cpu,
+    Database,
+    Eye,
+    FileCode,
+    FlaskConical,
+    Folder,
+    Gauge,
     GitBranch,
     Globe,
+    Layers,
+    Lightbulb,
+    Lock,
+    Mail,
+    MessageSquare,
+    Network,
+    PlayCircle,
+    Puzzle,
+    Quote,
+    Rocket,
     Shield,
     Sparkles,
+    Star,
+    Target,
     TrendingUp,
     Users,
     Workflow,
-    Zap,
-    Bot,
-    Brain,
-    Cpu,
-    Database,
-    FileCode,
-    Network,
-    Puzzle,
-    Rocket,
-    Star,
-    Terminal,
-    Layers,
-    Code,
-    BarChart3,
-    Lock,
-    Gauge,
-    Repeat,
-    MessageSquare,
-    Calendar,
-    Mail,
-    Folder,
-    PlayCircle,
-    CheckCheck,
-    AlertCircle,
-    ArrowUpRight,
-    ChevronRight,
-    Eye,
-    Target,
-    Lightbulb,
-    Boxes,
-    FlaskConical,
-    Quote
+    Zap
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { Link, useNavigate } from 'react-router-dom';
+
 
 export default function Home() {
     const [activeFeature, setActiveFeature] = useState(0);
     const [scrollY, setScrollY] = useState(0);
     const [currentTestimonial, setCurrentTestimonial] = useState(0);
+
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
+    const { user, isLoading, isError, isSuccess, message } = useSelector((state) => state.auth);
+
+    useEffect(() => {
+        if (isError) {
+            toast.error(message);
+        }
+        if (isSuccess || user) {
+            navigate('/dashboard');
+        }
+        dispatch(reset());
+    }, [user, isError, isSuccess, message, navigate, dispatch]);
 
     useEffect(() => {
         const handleScroll = () => setScrollY(window.scrollY);
@@ -336,13 +350,13 @@ export default function Home() {
                 {/* Animated background elements */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     <div className="absolute top-20 left-10 w-72 h-72 bg-primary/5 rounded-full blur-3xl animate-pulse"></div>
-                    <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+                    <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
                 </div>
 
                 <div className="relative mx-auto max-w-5xl text-center">
                     <div className="inline-flex items-center gap-2 rounded-full border px-4 py-2 mb-8 bg-primary/5 border-primary/20 animate-bounce">
-                        <Sparkles className="h-4 w-4 text-primary animate-spin" style={{animationDuration: '3s'}} />
+                        <Sparkles className="h-4 w-4 text-primary animate-spin" style={{ animationDuration: '3s' }} />
                         <span className="text-sm font-medium">AI-Powered Automation Platform</span>
                         <Badge variant="secondary" className="ml-2">New</Badge>
                     </div>
@@ -352,7 +366,7 @@ export default function Home() {
                         <span className="text-primary relative">
                             Without Code
                             <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 300 12" fill="none">
-                                <path d="M0 6 Q150 12 300 6" stroke="currentColor" strokeWidth="2" fill="none" className="text-primary/30"/>
+                                <path d="M0 6 Q150 12 300 6" stroke="currentColor" strokeWidth="2" fill="none" className="text-primary/30" />
                             </svg>
                         </span>
                     </h1>
@@ -441,11 +455,10 @@ export default function Home() {
                         const Icon = feature.icon;
                         const isActive = index === activeFeature;
                         return (
-                            <Card 
-                                key={index} 
-                                className={`border-2 transition-all duration-500 hover:shadow-xl cursor-pointer ${
-                                    isActive ? 'border-primary shadow-lg scale-105' : 'hover:border-primary/50'
-                                }`}
+                            <Card
+                                key={index}
+                                className={`border-2 transition-all duration-500 hover:shadow-xl cursor-pointer ${isActive ? 'border-primary shadow-lg scale-105' : 'hover:border-primary/50'
+                                    }`}
                                 onClick={() => setActiveFeature(index)}
                             >
                                 <CardHeader>
@@ -481,10 +494,10 @@ export default function Home() {
                         {integrations.map((integration, index) => {
                             const Icon = integration.icon;
                             return (
-                                <div 
+                                <div
                                     key={index}
                                     className="flex flex-col items-center justify-center p-4 bg-background rounded-lg hover:shadow-lg transition-all cursor-pointer group"
-                                    style={{animationDelay: `${index * 0.1}s`}}
+                                    style={{ animationDelay: `${index * 0.1}s` }}
                                 >
                                     <Icon className={`h-8 w-8 ${integration.color} group-hover:scale-125 transition-transform`} />
                                     <span className="text-xs mt-2 text-muted-foreground">{integration.name}</span>
@@ -688,9 +701,8 @@ export default function Home() {
                                 <button
                                     key={index}
                                     onClick={() => setCurrentTestimonial(index)}
-                                    className={`h-2 rounded-full transition-all ${
-                                        index === currentTestimonial ? 'w-8 bg-primary' : 'w-2 bg-muted-foreground/30'
-                                    }`}
+                                    className={`h-2 rounded-full transition-all ${index === currentTestimonial ? 'w-8 bg-primary' : 'w-2 bg-muted-foreground/30'
+                                        }`}
                                 />
                             ))}
                         </div>
@@ -764,8 +776,8 @@ export default function Home() {
                                         ))}
                                     </ul>
                                     <Link to="/register" className="block">
-                                        <Button 
-                                            className="w-full" 
+                                        <Button
+                                            className="w-full"
                                             variant={tier.popular ? "default" : "outline"}
                                             size="lg"
                                         >
@@ -896,14 +908,14 @@ export default function Home() {
                             <Rocket className="h-4 w-4 text-primary" />
                             <span className="text-sm font-medium">Start Automating Today</span>
                         </div>
-                        
+
                         <h2 className="text-4xl md:text-6xl font-bold mb-6">
                             Ready to Transform Your Workflow?
                         </h2>
                         <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
                             Join 10,000+ teams already using WorkflowPro to save time, reduce errors, and boost productivity with AI-powered automation
                         </p>
-                        
+
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
                             <Link to="/register">
                                 <Button size="lg" className="text-lg px-10 h-16 w-full sm:w-auto group">
@@ -962,7 +974,7 @@ export default function Home() {
                                 </Button>
                             </div>
                         </div>
-                        
+
                         <div>
                             <h3 className="font-semibold mb-3">Product</h3>
                             <ul className="space-y-2 text-sm text-muted-foreground">
@@ -973,7 +985,7 @@ export default function Home() {
                                 <li><a href="#" className="hover:text-foreground transition-colors">Changelog</a></li>
                             </ul>
                         </div>
-                        
+
                         <div>
                             <h3 className="font-semibold mb-3">Company</h3>
                             <ul className="space-y-2 text-sm text-muted-foreground">
@@ -984,7 +996,7 @@ export default function Home() {
                                 <li><a href="#" className="hover:text-foreground transition-colors">Partners</a></li>
                             </ul>
                         </div>
-                        
+
                         <div>
                             <h3 className="font-semibold mb-3">Resources</h3>
                             <ul className="space-y-2 text-sm text-muted-foreground">
