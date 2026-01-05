@@ -11,7 +11,17 @@ import {
   getWorkflow,
   updateWorkflow,
 } from '@/store/slices/workflowSlice';
-import { ArrowLeft, Plus, Save, Settings, Trash2, Zap } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Plus, 
+  Save, 
+  Settings, 
+  Trash2, 
+  Zap, 
+  Copy, 
+  Unplug,
+  Code2
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -29,13 +39,20 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { toast } from 'sonner';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 
 // Custom Node Component with proper handles
 function CustomNode({ data, selected }) {
   return (
     <div
-      className={`px-4 py-3 shadow-lg rounded-lg border-2 bg-card min-w-[200px] relative ${selected ? 'ring-2 ring-primary ring-offset-2' : ''
-        }`}
+      className={`px-4 py-3 shadow-lg rounded-lg border-2 bg-card min-w-[200px] relative ${
+        selected ? 'ring-2 ring-primary ring-offset-2' : ''
+      }`}
       style={{ borderColor: data.color || '#6B7280' }}
     >
       {/* Input Handle */}
@@ -118,6 +135,8 @@ export default function WorkflowEditor() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showConfigDialog, setShowConfigDialog] = useState(false);
+  const [jsonConfig, setJsonConfig] = useState('{}');
+  const [jsonError, setJsonError] = useState(null);
 
   useEffect(() => {
     dispatch(getWorkflow(id));
@@ -162,6 +181,14 @@ export default function WorkflowEditor() {
       setEdges(flowEdges);
     }
   }, [currentWorkflow, nodeTemplates]);
+
+  // Update JSON config when selected node changes
+  useEffect(() => {
+    if (selectedNode) {
+      setJsonConfig(JSON.stringify(selectedNode.data.config || {}, null, 2));
+      setJsonError(null);
+    }
+  }, [selectedNode]);
 
   const getNodeTemplate = (type) => {
     return nodeTemplates.find((t) => t.id === type || t.type === type);
@@ -289,7 +316,7 @@ export default function WorkflowEditor() {
       type: 'custom',
       position: {
         x: Math.random() * 400 + 100,
-        y: Math.random() * 300 + 100
+        y: Math.random() * 300 + 100,
       },
       data: {
         label: template.name,
@@ -306,11 +333,46 @@ export default function WorkflowEditor() {
     toast.success(`✅ Added ${template.name}`);
   };
 
+  // ✅ NEW: Duplicate node
+  const duplicateSelectedNode = () => {
+    if (selectedNode) {
+      const newNode = {
+        ...selectedNode,
+        id: `node-${Date.now()}`,
+        position: {
+          x: selectedNode.position.x + 50,
+          y: selectedNode.position.y + 50,
+        },
+        data: {
+          ...selectedNode.data,
+          label: `${selectedNode.data.label} (Copy)`,
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setSelectedNode(newNode);
+      toast.success('✅ Node duplicated');
+    }
+  };
+
+  // ✅ NEW: Disconnect node from all connections
+  const disconnectSelectedNode = () => {
+    if (selectedNode) {
+      const disconnectedEdges = edges.filter(
+        (e) => e.source !== selectedNode.id && e.target !== selectedNode.id
+      );
+      const removedCount = edges.length - disconnectedEdges.length;
+      setEdges(disconnectedEdges);
+      toast.success(`🔌 Disconnected ${removedCount} connection(s)`);
+    }
+  };
+
   const deleteSelectedNode = () => {
     if (selectedNode) {
       setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
       setEdges((eds) =>
-        eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id)
+        eds.filter(
+          (e) => e.source !== selectedNode.id && e.target !== selectedNode.id
+        )
       );
       setSelectedNode(null);
       toast.success('🗑️ Node deleted');
@@ -321,9 +383,7 @@ export default function WorkflowEditor() {
     if (selectedNode) {
       setNodes((nds) =>
         nds.map((n) =>
-          n.id === selectedNode.id
-            ? { ...n, data: { ...n.data, config } }
-            : n
+          n.id === selectedNode.id ? { ...n, data: { ...n.data, config } } : n
         )
       );
       setSelectedNode({
@@ -334,9 +394,47 @@ export default function WorkflowEditor() {
     }
   };
 
-  const filteredTemplates = nodeTemplates.filter((template) =>
-    template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.category.toLowerCase().includes(searchTerm.toLowerCase())
+  // ✅ NEW: Handle JSON config changes
+  const handleJsonConfigChange = (value) => {
+    setJsonConfig(value);
+    try {
+      const parsed = JSON.parse(value);
+      setJsonError(null);
+      // Auto-save valid JSON
+      if (selectedNode) {
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === selectedNode.id
+              ? { ...n, data: { ...n.data, config: parsed } }
+              : n
+          )
+        );
+        setSelectedNode({
+          ...selectedNode,
+          data: { ...selectedNode.data, config: parsed },
+        });
+      }
+    } catch (err) {
+      setJsonError(err.message);
+    }
+  };
+
+  // ✅ NEW: Format JSON
+  const formatJson = () => {
+    try {
+      const parsed = JSON.parse(jsonConfig);
+      setJsonConfig(JSON.stringify(parsed, null, 2));
+      setJsonError(null);
+      toast.success('✅ JSON formatted');
+    } catch (err) {
+      toast.error('❌ Invalid JSON: ' + err.message);
+    }
+  };
+
+  const filteredTemplates = nodeTemplates.filter(
+    (template) =>
+      template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      template.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const groupedNodes = filteredTemplates.reduce((acc, template) => {
@@ -366,7 +464,11 @@ export default function WorkflowEditor() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4 flex-1">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/workflows')}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/workflows')}
+            >
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-1 max-w-md">
@@ -387,11 +489,35 @@ export default function WorkflowEditor() {
           <div className="flex items-center space-x-2">
             {selectedNode && (
               <>
-                <Button variant="outline" size="sm" onClick={() => setShowConfigDialog(true)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowConfigDialog(true)}
+                >
                   <Settings className="h-4 w-4 mr-2" />
                   Configure
                 </Button>
-                <Button variant="destructive" size="sm" onClick={deleteSelectedNode}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={duplicateSelectedNode}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Duplicate
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={disconnectSelectedNode}
+                >
+                  <Unplug className="h-4 w-4 mr-2" />
+                  Disconnect
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={deleteSelectedNode}
+                >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
                 </Button>
@@ -408,7 +534,10 @@ export default function WorkflowEditor() {
           </div>
         </div>
 
-        <div className="grid grid-cols-12 gap-4" style={{ height: 'calc(100vh - 220px)' }}>
+        <div
+          className="grid grid-cols-12 gap-4"
+          style={{ height: 'calc(100vh - 220px)' }}
+        >
           <Card className="col-span-3 p-4 overflow-y-auto">
             <div className="space-y-4">
               <div>
@@ -438,7 +567,9 @@ export default function WorkflowEditor() {
                             {template.icon}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium truncate">{template.name}</div>
+                            <div className="text-sm font-medium truncate">
+                              {template.name}
+                            </div>
                             <div className="text-xs text-muted-foreground truncate">
                               {template.description}
                             </div>
@@ -470,7 +601,6 @@ export default function WorkflowEditor() {
               className="bg-background"
             >
               <Controls />
-              {/* <MiniMap /> */}
               <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
             </ReactFlow>
           </div>
@@ -478,60 +608,112 @@ export default function WorkflowEditor() {
           <Card className="col-span-2 p-4 overflow-y-auto">
             <h3 className="font-semibold mb-4">Properties</h3>
             {selectedNode ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Node Type</label>
-                  <p className="text-sm font-semibold mt-1 flex items-center gap-2">
-                    <span className="text-xl">{selectedNode.data.icon}</span>
-                    {selectedNode.data.type}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium mb-1 block">Label</label>
-                  <Input
-                    value={selectedNode.data.label || ''}
-                    onChange={(e) => {
-                      const newLabel = e.target.value;
-                      setNodes((nds) =>
-                        nds.map((n) =>
-                          n.id === selectedNode.id
-                            ? { ...n, data: { ...n.data, label: newLabel } }
-                            : n
-                        )
-                      );
-                      setSelectedNode({
-                        ...selectedNode,
-                        data: { ...selectedNode.data, label: newLabel },
-                      });
-                    }}
-                    className="text-sm"
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setShowConfigDialog(true)}
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  Configure Node
-                </Button>
-                {selectedNode.data.config && Object.keys(selectedNode.data.config).length > 0 && (
-                  <div className="p-2 bg-muted rounded text-xs">
-                    <p className="font-medium mb-1">Configuration:</p>
-                    <pre className="overflow-x-auto">
-                      {JSON.stringify(selectedNode.data.config, null, 2)}
-                    </pre>
+              <Tabs defaultValue="properties" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="properties">Properties</TabsTrigger>
+                  <TabsTrigger value="json">
+                    <Code2 className="h-3 w-3 mr-1" />
+                    JSON
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="properties" className="space-y-4 mt-0">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Node Type
+                    </label>
+                    <p className="text-sm font-semibold mt-1 flex items-center gap-2">
+                      <span className="text-xl">{selectedNode.data.icon}</span>
+                      {selectedNode.data.type}
+                    </p>
                   </div>
-                )}
-              </div>
+                  <div>
+                    <label className="text-xs font-medium mb-1 block">
+                      Label
+                    </label>
+                    <Input
+                      value={selectedNode.data.label || ''}
+                      onChange={(e) => {
+                        const newLabel = e.target.value;
+                        setNodes((nds) =>
+                          nds.map((n) =>
+                            n.id === selectedNode.id
+                              ? { ...n, data: { ...n.data, label: newLabel } }
+                              : n
+                          )
+                        );
+                        setSelectedNode({
+                          ...selectedNode,
+                          data: { ...selectedNode.data, label: newLabel },
+                        });
+                      }}
+                      className="text-sm"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setShowConfigDialog(true)}
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Configure Node
+                  </Button>
+                  {selectedNode.data.config &&
+                    Object.keys(selectedNode.data.config).length > 0 && (
+                      <div className="p-2 bg-muted rounded text-xs">
+                        <p className="font-medium mb-1">Configuration:</p>
+                        <pre className="overflow-x-auto">
+                          {JSON.stringify(selectedNode.data.config, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                </TabsContent>
+
+                <TabsContent value="json" className="space-y-3 mt-0">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium">
+                      Configuration JSON
+                    </label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={formatJson}
+                      className="h-6 px-2 text-xs"
+                    >
+                      Format
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={jsonConfig}
+                    onChange={(e) => handleJsonConfigChange(e.target.value)}
+                    className={`font-mono text-xs min-h-[400px] ${
+                      jsonError ? 'border-red-500' : ''
+                    }`}
+                    placeholder="{}"
+                  />
+                  {jsonError && (
+                    <div className="text-xs text-red-500 p-2 bg-red-50 dark:bg-red-950/20 rounded border border-red-200">
+                      <p className="font-medium">Invalid JSON:</p>
+                      <p className="mt-1">{jsonError}</p>
+                    </div>
+                  )}
+                  {!jsonError && (
+                    <div className="text-xs text-green-600 dark:text-green-400 p-2 bg-green-50 dark:bg-green-950/20 rounded border border-green-200">
+                      ✓ Valid JSON - Auto-saved
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             ) : (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
                   Double-click a node to configure it
                 </p>
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Description</label>
+                  <label className="text-sm font-medium mb-2 block">
+                    Description
+                  </label>
                   <Textarea
                     value={workflowDescription}
                     onChange={(e) => setWorkflowDescription(e.target.value)}
@@ -562,8 +744,8 @@ export default function WorkflowEditor() {
           nodeTemplate={getNodeTemplate(selectedNode.data.type)}
           onClose={() => setShowConfigDialog(false)}
           onSave={handleConfigSave}
-          allNodes={nodes}  // ← ADD THIS
-          connections={edges}  // ← ADD THIS
+          allNodes={nodes}
+          connections={edges}
         />
       )}
     </Layout>

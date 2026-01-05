@@ -150,7 +150,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {workflows.slice(0, 5).map((workflow) => (
+                {workflows.slice(0, 3).map((workflow) => (
                   <Link
                     key={workflow._id}
                     to={`/workflows/${workflow._id}`}
