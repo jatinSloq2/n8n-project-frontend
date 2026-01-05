@@ -11,8 +11,16 @@ import { GitBranch, Activity, CheckCircle, XCircle, Clock, Plus, TrendingUp, Zap
 
 export default function Dashboard() {
   const dispatch = useDispatch();
-  const { workflows } = useSelector((state) => state.workflow);
-  const { stats } = useSelector((state) => state.execution);
+  const { workflows, isLoading: workflowsLoading } = useSelector(
+    (state) => state.workflow
+  );
+
+  const {
+    stats,
+    isLoading: executionLoading,
+  } = useSelector((state) => state.execution);
+
+  const isLoading = workflowsLoading || executionLoading;
 
   useEffect(() => {
     dispatch(getWorkflows());
@@ -25,6 +33,8 @@ export default function Dashboard() {
     ? Math.round((stats.success / (stats.success + stats.error)) * 100)
     : 0;
 
+  const statsToshow = stats?.byStatus || []
+
   const statsCards = [
     {
       title: 'Total Workflows',
@@ -36,7 +46,7 @@ export default function Dashboard() {
     },
     {
       title: 'Successful',
-      value: stats?.success || 0,
+      value: statsToshow?.success || 0,
       description: 'Completed executions',
       icon: CheckCircle,
       iconColor: 'text-green-500',
@@ -44,7 +54,7 @@ export default function Dashboard() {
     },
     {
       title: 'Failed',
-      value: stats?.error || 0,
+      value: statsToshow?.error || 0,
       description: 'Failed executions',
       icon: XCircle,
       iconColor: 'text-red-500',
@@ -52,13 +62,28 @@ export default function Dashboard() {
     },
     {
       title: 'Running',
-      value: stats?.running || 0,
+      value: statsToshow?.running || 0,
       description: 'In progress',
       icon: Clock,
       iconColor: 'text-amber-500',
       bgColor: 'bg-amber-500/10',
     },
   ];
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary border-t-transparent" />
+            <p className="text-muted-foreground text-sm">
+              Loading dashboard data...
+            </p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
