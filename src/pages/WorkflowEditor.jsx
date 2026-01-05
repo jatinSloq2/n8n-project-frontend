@@ -3,8 +3,6 @@ import { NodeConfigDialog } from '@/components/NodeConfigDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +17,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { getNodeTemplates } from '@/store/slices/nodeSlice';
 import {
   executeWorkflow,
@@ -26,37 +32,32 @@ import {
   updateWorkflow,
 } from '@/store/slices/workflowSlice';
 import {
+  AlertCircle,
   ArrowLeft,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Code2,
+  Copy,
+  Download,
+  FileJson,
+  GitBranch,
+  Grid3x3,
+  Info,
+  Keyboard,
+  Layers,
+  Pause,
+  Play,
   Plus,
   Save,
+  Search,
   Settings,
   Trash2,
-  Zap,
-  Copy,
   Unplug,
-  Code2,
-  Download,
   Upload,
-  Play,
-  Pause,
-  MoreVertical,
-  Check,
-  FileJson,
-  Search,
-  X,
-  ChevronDown,
-  Maximize2,
-  Minimize2,
-  Grid3x3,
-  Layers,
-  GitBranch,
-  Clock,
-  Info,
-  AlertCircle,
-  CheckCircle2,
-  Keyboard
+  X
 } from 'lucide-react';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams } from 'react-router-dom';
 import ReactFlow, {
@@ -68,17 +69,10 @@ import ReactFlow, {
   Controls,
   Handle,
   MarkerType,
-  MiniMap,
-  Position,
+  Position
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { toast } from 'sonner';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
 
 // Custom Node Component
 function CustomNode({ data, selected }) {
@@ -626,7 +620,7 @@ export default function WorkflowEditor() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {selectedNode && (
+            {/* {selectedNode && (
               <>
                 <Button
                   variant="outline"
@@ -642,7 +636,7 @@ export default function WorkflowEditor() {
                     <Button variant="outline" size="sm" className="gap-2">
                       Actions
                       {/* <MoreVertical className="h-4 w-4" /> */}
-                      <ChevronDown className="h-3 w-3" />
+                      {/* <ChevronDown className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
@@ -668,7 +662,7 @@ export default function WorkflowEditor() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
-            )}
+            // )} */}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -757,7 +751,7 @@ export default function WorkflowEditor() {
                 {/* Scroll Indicator - Top */}
                 <div className="sticky top-0 left-0 right-0 h-8 bg-gradient-to-b from-card to-transparent pointer-events-none z-20" />
 
-                <div className="sticky top-0 bg-card z-10">
+                 <div className="sticky top-0 z-30 bg-card px-2 pb-2">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -840,7 +834,15 @@ export default function WorkflowEditor() {
                 )}
               </TabsContent>
 
-              <TabsContent value="properties" className="flex-1 space-y-4 mt-0 overflow-visible">
+              <TabsContent value="properties" className="flex-1 space-y-4 mt-0 overflow-y-auto" style={{
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none'
+              }}>
+                <style jsx>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
                 {selectedNode ? (
                   <div className="space-y-4">
                     <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg border">

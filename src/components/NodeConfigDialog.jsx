@@ -43,7 +43,7 @@ function ExpressionInput({ value, onChange, availableNodes, placeholder }) {
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 px-1">
       <div className="relative">
         <Textarea
           value={value}
@@ -78,7 +78,7 @@ function ExpressionInput({ value, onChange, availableNodes, placeholder }) {
             </Button>
           </div>
           <ScrollArea className="max-h-48">
-            <div className="space-y-2">
+            <div className="space-y-2 px-1">
               <button
                 className="w-full text-left text-xs p-2 hover:bg-muted rounded border"
                 onClick={() => {
@@ -293,7 +293,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
           );
         }
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 px-1">
             <Input
               value={value}
               onChange={(e) => updateConfig(property.name, e.target.value)}
@@ -322,7 +322,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
           );
         }
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 px-1">
             <Textarea
               value={value}
               onChange={(e) => updateConfig(property.name, e.target.value)}
@@ -341,7 +341,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
 
       case 'number':
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 px-1">
             <Input
               type="number"
               value={value}
@@ -366,7 +366,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
 
       case 'select':
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 px-1">
             <Select
               value={value || ''}
               onValueChange={(val) => updateConfig(property.name, val)}
@@ -413,7 +413,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
 
       case 'json':
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 px-1">
             <Textarea
               value={typeof value === 'object' ? JSON.stringify(value, null, 2) : value}
               onChange={(e) => {
@@ -440,7 +440,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
       case 'keyValue':
         const kvPairs = value || {};
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 px-1">
             <Card className="p-3 space-y-2">
               {Object.entries(kvPairs).length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-2">
@@ -489,7 +489,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
       case 'array':
         const arrItems = value || [];
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 px-1">
             <Card className="p-3 space-y-2">
               {arrItems.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-2">
@@ -532,7 +532,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
       case 'conditions':
         const conditions = value || [];
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 px-1">
             <Card className="p-3 space-y-3">
               {conditions.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-2">
@@ -598,7 +598,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
 
       default:
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 px-1">
             <Input
               value={value}
               onChange={(e) => updateConfig(property.name, e.target.value)}
