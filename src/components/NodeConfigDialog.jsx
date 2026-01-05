@@ -27,8 +27,10 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, Code2, Key, Plus, Trash2 } from 'lucide-react';
+import { AlertCircle, Code2, Key, Plus, Trash2, Upload, FileIcon, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { filesService } from '../services/files.service';
 
 // Expression Input Component
 function ExpressionInput({ value, onChange, availableNodes, placeholder }) {
@@ -131,6 +133,33 @@ function ExpressionInput({ value, onChange, availableNodes, placeholder }) {
 export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes, connections }) {
   const [config, setConfig] = useState(node?.data?.config || {});
   const [errors, setErrors] = useState({});
+  const [uploadingFiles, setUploadingFiles] = useState({});
+  const [uploadedFiles, setUploadedFiles] = useState({});
+
+  // Add this function inside NodeConfigDialog component
+  const handleFileUpload = async (property, file) => {
+    setUploadingFiles(prev => ({ ...prev, [property.name]: true }));
+
+    try {
+      const uploadedFile = await filesService.uploadFile(file);
+
+      // Store the file info
+      setUploadedFiles(prev => ({
+        ...prev,
+        [property.name]: uploadedFile
+      }));
+
+      // Update config with the file ID
+      updateConfig(property.name, uploadedFile._id);
+
+      toast.success(`✅ File uploaded: ${file.name}`);
+    } catch (error) {
+      toast.error(`❌ Failed to upload file: ${error.message}`);
+    } finally {
+      setUploadingFiles(prev => ({ ...prev, [property.name]: false }));
+    }
+  };
+
 
   // Get nodes that come before this node in the workflow
   const getPreviousNodes = () => {
@@ -336,6 +365,99 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
                 {hasError}
               </p>
             )}
+          </div>
+        );
+
+      case 'file':
+        const uploadedFile = uploadedFiles[property.name];
+        const isUploading = uploadingFiles[property.name];
+
+        return (
+          <div className="space-y-2 px-1">
+            <Card className="p-4">
+              {value && uploadedFile ? (
+                // Show uploaded file info
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                    <FileIcon className="h-8 w-8 text-primary" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {uploadedFile.filename}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {uploadedFile.mimetype} • {(uploadedFile.size / 1024).toFixed(2)} KB
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        updateConfig(property.name, '');
+                        setUploadedFiles(prev => {
+                          const updated = { ...prev };
+                          delete updated[property.name];
+                          return updated;
+                        });
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground p-2 bg-blue-50 dark:bg-blue-950/20 rounded">
+                    <p className="font-medium mb-1">File ID:</p>
+                    <code className="text-xs">{value}</code>
+                  </div>
+                </div>
+              ) : (
+                // Show upload button
+                <div className="text-center py-6">
+                  <input
+                    type="file"
+                    id={`file-${property.name}`}
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleFileUpload(property, file);
+                      }
+                    }}
+                    disabled={isUploading}
+                    accept=".csv,.xlsx,.xls,.json,.txt,.pdf,.png,.jpg,.jpeg"
+                  />
+                  <label
+                    htmlFor={`file-${property.name}`}
+                    className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-dashed transition-colors ${isUploading
+                      ? 'border-muted bg-muted cursor-not-allowed'
+                      : 'border-primary/50 hover:border-primary hover:bg-primary/5'
+                      }`}
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm font-medium">Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4" />
+                        <span className="text-sm font-medium">Choose File</span>
+                      </>
+                    )}
+                  </label>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Supported: CSV, Excel, JSON, Text, PDF, Images
+                  </p>
+                </div>
+              )}
+
+              {hasError && (
+                <p className="text-xs text-red-500 flex items-center gap-1 mt-2">
+                  <AlertCircle className="h-3 w-3" />
+                  {hasError}
+                </p>
+              )}
+            </Card>
           </div>
         );
 
