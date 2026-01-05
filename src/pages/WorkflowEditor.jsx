@@ -640,8 +640,8 @@ export default function WorkflowEditor() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-2">
-                      <MoreVertical className="h-4 w-4" />
                       Actions
+                      {/* <MoreVertical className="h-4 w-4" /> */}
                       <ChevronDown className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -675,6 +675,7 @@ export default function WorkflowEditor() {
                 <Button variant="outline" size="sm" className="gap-2">
                   <FileJson className="h-4 w-4" />
                   Import/Export
+                  <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -727,8 +728,8 @@ export default function WorkflowEditor() {
         <div className="grid grid-cols-12 gap-4" style={{ height: 'calc(100vh - 200px)' }}>
           {/* Sidebar */}
           <Card className={`${isFullscreen ? 'hidden' : 'col-span-12 md:col-span-3'} p-4 overflow-hidden flex flex-col`}>
-            <Tabs value={sidebarView} onValueChange={setSidebarView} className="flex-1 flex flex-col">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
+            <Tabs value={sidebarView} onValueChange={setSidebarView} className="flex-1 flex flex-col min-h-0">
+              <TabsList className="grid w-full grid-cols-2 mb-4 shrink-0">
                 <TabsTrigger value="nodes" className="gap-2">
                   <Grid3x3 className="h-4 w-4" />
                   Nodes
@@ -739,8 +740,24 @@ export default function WorkflowEditor() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="nodes" className="flex-1 overflow-y-auto space-y-4 mt-0">
-                <div className="sticky top-0 bg-card z-10 pb-3">
+              <TabsContent
+                value="nodes"
+                className="flex-1 overflow-y-auto space-y-4 mt-0 min-h-0 scrollbar-hide relative"
+                style={{
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none'
+                }}
+              >
+                <style jsx>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+
+                {/* Scroll Indicator - Top */}
+                <div className="sticky top-0 left-0 right-0 h-8 bg-gradient-to-b from-card to-transparent pointer-events-none z-20" />
+
+                <div className="sticky top-0 bg-card z-10">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -812,9 +829,18 @@ export default function WorkflowEditor() {
                     </Button>
                   </div>
                 )}
+
+                {/* Scroll Indicator - Bottom */}
+                {filteredTemplates.length > 3 && (
+                  <div className="sticky bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-card to-transparent pointer-events-none z-20 flex items-end justify-center pb-2">
+                    <div className="animate-bounce">
+                      <ChevronDown className="h-4 w-4 text-muted-foreground opacity-50" />
+                    </div>
+                  </div>
+                )}
               </TabsContent>
 
-              <TabsContent value="properties" className="flex-1 overflow-y-auto space-y-4 mt-0">
+              <TabsContent value="properties" className="flex-1 space-y-4 mt-0 overflow-visible">
                 {selectedNode ? (
                   <div className="space-y-4">
                     <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg border">
@@ -885,13 +911,18 @@ export default function WorkflowEditor() {
                         <label className="text-xs font-medium text-muted-foreground mb-2 block">
                           Configuration
                         </label>
-                        <Textarea
-                          value={jsonConfig}
-                          onChange={(e) => handleJsonConfigChange(e.target.value)}
-                          className={`font-mono text-xs min-h-[200px] ${jsonError ? 'border-red-500' : ''
-                            }`}
-                          placeholder="{}"
-                        />
+                        <div className="relative">
+                          <Textarea
+                            value={jsonConfig}
+                            onChange={(e) => handleJsonConfigChange(e.target.value)}
+                            className={`font-mono text-xs h-[200px] resize-none overflow-y-auto ${jsonError ? 'border-red-500' : ''
+                              }`}
+                            placeholder="{}"
+                            style={{
+                              scrollbarWidth: 'thin'
+                            }}
+                          />
+                        </div>
                         {jsonError && (
                           <div className="text-xs text-red-500 mt-2 p-2 bg-red-50 dark:bg-red-950/20 rounded">
                             <p className="font-medium">Invalid JSON:</p>
@@ -1015,18 +1046,9 @@ export default function WorkflowEditor() {
               </TabsContent>
             </Tabs>
           </Card>
-
           {/* Canvas */}
           <div className={`${isFullscreen ? 'col-span-12' : 'col-span-12 md:col-span-9'} border-2 rounded-lg overflow-hidden bg-background relative`}>
             <div className="absolute top-3 right-3 z-10 flex gap-2">
-              <Button
-                variant="secondary"
-                size="icon"
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                className="shadow-lg"
-              >
-                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              </Button>
             </div>
             <ReactFlow
               nodes={nodes}
@@ -1044,7 +1066,6 @@ export default function WorkflowEditor() {
               className="bg-background"
             >
               <Controls />
-              <MiniMap className="!bg-muted" zoomable pannable />
               <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
             </ReactFlow>
           </div>
