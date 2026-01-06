@@ -665,6 +665,14 @@ export default function WorkflowEditor() {
     return acc;
   }, {});
 
+  const getWebhookUrl = useCallback((node) => {
+    if (node?.data?.type === 'webhook' && node?.data?.config?.path) {
+      return `${window.location.origin}/api/webhooks/${id}${node.data.config.path}`;
+    }
+    return null;
+  }, [id]);
+
+
   // const webhookUrl = `${window.location.origin}/api/webhooks/${id}${webhookNode.data.config.path}`;
 
   if (isLoading) {
@@ -937,7 +945,7 @@ export default function WorkflowEditor() {
         }
       `}</style>
                 {selectedNode ? (
-                  <div className="space-y-4">
+                  <div className="space-y-4 px-1">
                     <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg border">
                       <span className="text-3xl">{selectedNode.data.icon}</span>
                       <div className="flex-1 min-w-0">
@@ -956,6 +964,48 @@ export default function WorkflowEditor() {
                         {copiedText === 'Node Info' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                       </Button>
                     </div>
+
+                    {/* NEW: Webhook URL Section - Add this */}
+                    {getWebhookUrl(selectedNode) && (
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                          <Code2 className="h-3 w-3" />
+                          Webhook URL
+                        </label>
+                        <Card className="p-3 bg-blue-50 dark:bg-blue-950/20 border-blue-200">
+                          <div className="space-y-3">
+                            <div className="flex items-start gap-2">
+                              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                              <p className="text-xs text-blue-700 dark:text-blue-300">
+                                Use this URL to trigger your workflow from external services
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Input
+                                value={getWebhookUrl(selectedNode)}
+                                readOnly
+                                className="text-xs font-mono bg-white dark:bg-gray-950 flex-1"
+                              />
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => copyToClipboard(getWebhookUrl(selectedNode), 'Webhook URL')}
+                                className="shrink-0"
+                              >
+                                {copiedText === 'Webhook URL' ? (
+                                  <Check className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                            <div className="text-xs text-blue-600 dark:text-blue-400 font-mono bg-white dark:bg-gray-950 p-2 rounded">
+                              POST {getWebhookUrl(selectedNode)}
+                            </div>
+                          </div>
+                        </Card>
+                      </div>
+                    )}
 
                     <div className="space-y-3">
                       <div>

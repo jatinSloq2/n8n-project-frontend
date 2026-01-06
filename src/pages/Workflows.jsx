@@ -8,6 +8,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   getWorkflows,
   createWorkflow,
   deleteWorkflow,
@@ -36,6 +46,9 @@ import {
 
 export default function Workflows() {
   const [search, setSearch] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [workflowToDelete, setWorkflowToDelete] = useState(null);
+  
   const dispatch = useDispatch();
   const { workflows, isLoading } = useSelector((state) => state.workflow);
 
@@ -57,12 +70,19 @@ export default function Workflows() {
     }
   };
 
-  const handleDelete = async (id, e) => {
+  const openDeleteDialog = (workflow, e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (confirm('Are you sure you want to delete this workflow?')) {
-      await dispatch(deleteWorkflow(id));
-      toast.success('Workflow deleted');
+    setWorkflowToDelete(workflow);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (workflowToDelete) {
+      await dispatch(deleteWorkflow(workflowToDelete._id));
+      toast.success('Workflow deleted successfully');
+      setDeleteDialogOpen(false);
+      setWorkflowToDelete(null);
     }
   };
 
@@ -190,7 +210,7 @@ export default function Workflows() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={(e) => handleDelete(workflow._id, e)}
+                          onClick={(e) => openDeleteDialog(workflow, e)}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete
@@ -241,6 +261,30 @@ export default function Workflows() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the workflow "{workflowToDelete?.name}". 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setWorkflowToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

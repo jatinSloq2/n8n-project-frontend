@@ -132,7 +132,8 @@ function ExpressionInput({ value, onChange, availableNodes, placeholder }) {
 
 export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes, connections }) {
   const [config, setConfig] = useState(() => {
-    const initialConfig = node?.data?.config || {};
+    // Create a deep copy to avoid mutating the original object
+    const initialConfig = { ...(node?.data?.config || {}) };
 
     // Apply default values for properties that don't have values
     if (nodeTemplate?.properties) {

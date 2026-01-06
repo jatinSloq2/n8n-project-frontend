@@ -1,34 +1,80 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import axios from 'axios';
 
 const API_URL = `${import.meta.env.VITE_BASE_URL}/templates`;
 
+const getConfig = (token) => ({
+    headers: {
+        Authorization: `Bearer ${token}`,
+    },
+});
+
+// Get templates
 export const getTemplates = createAsyncThunk(
     'template/getTemplates',
-    async (filters = {}) => {
-        const params = new URLSearchParams();
-        if (filters.category) params.append('category', filters.category);
-        if (filters.difficulty) params.append('difficulty', filters.difficulty);
-        if (filters.search) params.append('search', filters.search);
+    async (filters = {}, thunkAPI) => {
+        try {
+            const token = thunkAPI.getState().auth.token;
 
-        const response = await axios.get(`${API_URL}/?${params.toString()}`);
-        return response.data;
+            const params = new URLSearchParams();
+            if (filters.category) params.append('category', filters.category);
+            if (filters.difficulty) params.append('difficulty', filters.difficulty);
+            if (filters.search) params.append('search', filters.search);
+
+            const response = await axios.get(
+                `${API_URL}?${params.toString()}`,
+                getConfig(token)
+            );
+
+            return response.data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response?.data?.message || error.message
+            );
+        }
     }
 );
 
+// Get template by ID
 export const getTemplateById = createAsyncThunk(
     'template/getTemplateById',
-    async (id) => {
-        const response = await axios.get(`${API_URL}/${id}`);
-        return response.data;
+    async (id, thunkAPI) => {
+        try {
+            const token = thunkAPI.getState().auth.token;
+
+            const response = await axios.get(
+                `${API_URL}/${id}`,
+                getConfig(token)
+            );
+
+            return response.data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response?.data?.message || error.message
+            );
+        }
     }
 );
 
+// Create workflow from template
 export const createWorkflowFromTemplate = createAsyncThunk(
     'template/createFromTemplate',
-    async ({ templateId, customData }) => {
-        const response = await axios.post(`${API_URL}/${templateId}/use`, customData);
-        return response.data;
+    async ({ templateId, customData }, thunkAPI) => {
+        try {
+            const token = thunkAPI.getState().auth.token;
+
+            const response = await axios.post(
+                `${API_URL}/${templateId}/use`,
+                customData,
+                getConfig(token)
+            );
+
+            return response.data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response?.data?.message || error.message
+            );
+        }
     }
 );
 
@@ -61,13 +107,20 @@ const templateSlice = createSlice({
             })
             .addCase(getTemplates.rejected, (state, action) => {
                 state.isLoading = false;
-                state.error = action.error.message;
+                state.error = action.payload;
             })
             .addCase(getTemplateById.fulfilled, (state, action) => {
                 state.currentTemplate = action.payload;
             })
+            .addCase(createWorkflowFromTemplate.pending, (state) => {
+                state.isLoading = true;
+            })
             .addCase(createWorkflowFromTemplate.fulfilled, (state) => {
                 state.isLoading = false;
+            })
+            .addCase(createWorkflowFromTemplate.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
             });
     },
 });
