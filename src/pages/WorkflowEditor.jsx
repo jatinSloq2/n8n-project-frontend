@@ -665,6 +665,8 @@ export default function WorkflowEditor() {
     return acc;
   }, {});
 
+  // const webhookUrl = `${window.location.origin}/api/webhooks/${id}${webhookNode.data.config.path}`;
+
   if (isLoading) {
     return (
       <Layout>
