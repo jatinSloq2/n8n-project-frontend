@@ -131,7 +131,20 @@ function ExpressionInput({ value, onChange, availableNodes, placeholder }) {
 }
 
 export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes, connections }) {
-  const [config, setConfig] = useState(node?.data?.config || {});
+  const [config, setConfig] = useState(() => {
+    const initialConfig = node?.data?.config || {};
+
+    // Apply default values for properties that don't have values
+    if (nodeTemplate?.properties) {
+      nodeTemplate.properties.forEach((property) => {
+        if (property.default !== undefined && initialConfig[property.name] === undefined) {
+          initialConfig[property.name] = property.default;
+        }
+      });
+    }
+
+    return initialConfig;
+  });
   const [errors, setErrors] = useState({});
   const [uploadingFiles, setUploadingFiles] = useState({});
   const [uploadedFiles, setUploadedFiles] = useState({});
@@ -180,7 +193,10 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
   }, [node]);
 
   const validateField = (property, value) => {
-    if (property.required && !value && value !== 0 && value !== false) {
+
+    const actualValue = value !== undefined ? value : property.default;
+
+    if (property.required && actualValue !== 0 && actualValue !== false && !actualValue) {
       return `${property.label} is required`;
     }
 
@@ -211,8 +227,15 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
 
   const handleSave = () => {
     const newErrors = {};
+    const finalConfig = { ...config };
+
     nodeTemplate.properties?.forEach((property) => {
-      const error = validateField(property, config[property.name]);
+      // Use default value if not set
+      if (finalConfig[property.name] === undefined && property.default !== undefined) {
+        finalConfig[property.name] = property.default;
+      }
+
+      const error = validateField(property, finalConfig[property.name]);
       if (error) {
         newErrors[property.name] = error;
       }
@@ -220,10 +243,11 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      toast.error('❌ Please fill in all required fields');
       return;
     }
 
-    onSave(config);
+    onSave(finalConfig);
     onClose();
   };
 

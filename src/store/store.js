@@ -3,6 +3,7 @@ import authReducer from './slices/authSlice';
 import workflowReducer from './slices/workflowSlice';
 import executionReducer from './slices/executionSlice';
 import nodeReducer from './slices/nodeSlice';
+import templateReducer from './slices/templateSlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     workflow: workflowReducer,
     execution: executionReducer,
     node: nodeReducer,
+    template: templateReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

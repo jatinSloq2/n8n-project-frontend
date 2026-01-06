@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import WorkflowEditor from './pages/WorkflowEditor';
 import Workflows from './pages/Workflows';
+import Templates from './pages/Templates';
 
 function PrivateRoute({ children }) {
   const { token } = useSelector((state) => state.auth);
@@ -51,6 +52,14 @@ function App() {
           element={
             <PrivateRoute>
               <Executions />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/templates"
+          element={
+            <PrivateRoute>
+              <Templates />
             </PrivateRoute>
           }
         />

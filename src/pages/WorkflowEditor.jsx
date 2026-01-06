@@ -317,6 +317,39 @@ export default function WorkflowEditor() {
   }, []);
 
   const handleSave = async () => {
+    const validationErrors = validateWorkflow();
+    if (validationErrors.length > 0) {
+      // Group errors by node
+      const errorsByNode = validationErrors.reduce((acc, err) => {
+        if (!acc[err.nodeLabel]) {
+          acc[err.nodeLabel] = [];
+        }
+        acc[err.nodeLabel].push(err.field);
+        return acc;
+      }, {});
+
+      // Create a more readable error message
+      const errorMessages = Object.entries(errorsByNode).map(
+        ([nodeLabel, fields]) => `• ${nodeLabel}: ${fields.join(', ')}`
+      );
+
+      // Show errors in a custom component or multiple toasts
+      toast.error(
+        <div className="space-y-2">
+          <p className="font-semibold">Please fix the following errors:</p>
+          <div className="text-sm space-y-1">
+            {errorMessages.map((msg, idx) => (
+              <div key={idx}>{msg}</div>
+            ))}
+          </div>
+        </div>,
+        {
+          duration: 8000,
+        }
+      );
+      return;
+    }
+
     setIsSaving(true);
     try {
       const backendNodes = nodes.map((node) => ({
@@ -364,6 +397,38 @@ export default function WorkflowEditor() {
   const handleExecute = async () => {
     if (nodes.length === 0) {
       toast.error('❌ Add at least one node to execute');
+      return;
+    }
+
+    const validationErrors = validateWorkflow();
+    if (validationErrors.length > 0) {
+      // Group errors by node
+      const errorsByNode = validationErrors.reduce((acc, err) => {
+        if (!acc[err.nodeLabel]) {
+          acc[err.nodeLabel] = [];
+        }
+        acc[err.nodeLabel].push(err.field);
+        return acc;
+      }, {});
+
+      // Create a more readable error message
+      const errorMessages = Object.entries(errorsByNode).map(
+        ([nodeLabel, fields]) => `• ${nodeLabel}: ${fields.join(', ')}`
+      );
+
+      toast.error(
+        <div className="space-y-2">
+          <p className="font-semibold">Cannot execute workflow:</p>
+          <div className="text-sm space-y-1">
+            {errorMessages.map((msg, idx) => (
+              <div key={idx}>{msg}</div>
+            ))}
+          </div>
+        </div>,
+        {
+          duration: 8000,
+        }
+      );
       return;
     }
 
@@ -421,6 +486,32 @@ export default function WorkflowEditor() {
       setSelectedNode(newNode);
       toast.success('✅ Node duplicated');
     }
+  };
+
+  const validateWorkflow = () => {
+    const errors = [];
+
+    nodes.forEach((node) => {
+      const template = getNodeTemplate(node.data.type);
+      if (!template || !template.properties) return;
+
+      template.properties.forEach((property) => {
+        if (property.required) {
+          const value = node.data.config?.[property.name];
+
+          // Check if value is missing (accounting for falsy values like 0 and false)
+          if (value === undefined || value === null || value === '') {
+            errors.push({
+              nodeId: node.id,
+              nodeLabel: node.data.label,
+              field: property.label
+            });
+          }
+        }
+      });
+    });
+
+    return errors;
   };
 
   const disconnectSelectedNode = () => {
@@ -636,7 +727,7 @@ export default function WorkflowEditor() {
                     <Button variant="outline" size="sm" className="gap-2">
                       Actions
                       {/* <MoreVertical className="h-4 w-4" /> */}
-                      {/* <ChevronDown className="h-3 w-3" />
+            {/* <ChevronDown className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
@@ -751,7 +842,7 @@ export default function WorkflowEditor() {
                 {/* Scroll Indicator - Top */}
                 <div className="sticky top-0 left-0 right-0 h-8 bg-gradient-to-b from-card to-transparent pointer-events-none z-20" />
 
-                 <div className="sticky top-0 z-30 bg-card px-2 pb-2">
+                <div className="sticky top-0 z-30 bg-card px-2 pb-2">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input

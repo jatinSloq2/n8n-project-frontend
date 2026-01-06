@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { logout } from '@/store/slices/authSlice';
-import { Workflow, LayoutDashboard, GitBranch, Activity, LogOut, Menu, X } from 'lucide-react';
+import { Workflow, LayoutDashboard, GitBranch, Activity, LogOut, Menu, X, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Layout({ children }) {
@@ -24,6 +24,7 @@ export default function Layout({ children }) {
 
   const navLinks = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { label: 'Templates', path: '/templates', icon: Sparkles, badge: 'New' },
     { path: '/workflows', label: 'Workflows', icon: GitBranch },
     { path: '/executions', label: 'Executions', icon: Activity },
   ];
