@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getExecution } from '@/store/slices/executionSlice';
-import { ArrowLeft, CheckCircle, XCircle, Clock, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function ExecutionDetail() {
@@ -17,13 +17,11 @@ export default function ExecutionDetail() {
 
   useEffect(() => {
     dispatch(getExecution(id));
-    
-    const interval = setInterval(() => {
-      dispatch(getExecution(id));
-    }, 3000);
-    
-    return () => clearInterval(interval);
   }, [dispatch, id]);
+
+  const handleRefresh = () => {
+    dispatch(getExecution(id));
+  };
 
   const getStatusIcon = (status) => {
     const iconClass = "h-6 w-6";
@@ -57,13 +55,26 @@ export default function ExecutionDetail() {
     );
   };
 
-  if (isLoading || !currentExecution) {
+  if (isLoading && !currentExecution) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-[60vh]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mx-auto"></div>
             <p className="mt-4 text-muted-foreground font-medium">Loading execution details...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!currentExecution) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center">
+            <AlertCircle className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">Execution not found</p>
           </div>
         </div>
       </Layout>
@@ -90,6 +101,15 @@ export default function ExecutionDetail() {
               {currentExecution.workflowId?.name || 'Unknown workflow'}
             </p>
           </div>
+          <Button 
+            variant="outline" 
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         {/* Status Cards */}
