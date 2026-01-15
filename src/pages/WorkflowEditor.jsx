@@ -3,143 +3,31 @@ import { NodeConfigDialog } from '@/components/NodeConfigDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger, } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { getNodeTemplates } from '@/store/slices/nodeSlice';
+import { executeWorkflow, getWorkflow, updateWorkflow, } from '@/store/slices/workflowSlice';
 import {
-  executeWorkflow,
-  getWorkflow,
-  updateWorkflow,
-} from '@/store/slices/workflowSlice';
-import {
-  AlertCircle,
-  ArrowLeft,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  Code2,
-  Copy,
-  Download,
-  FileJson,
-  GitBranch,
-  Grid3x3,
-  Info,
-  Keyboard,
-  Layers,
-  Pause,
-  Play,
-  Plus,
-  Save,
-  Search,
-  Settings,
-  Trash2,
-  Unplug,
-  Upload,
-  X
+  AlertCircle, ArrowLeft, Check, CheckCircle2, ChevronDown, Code2, Copy, Download, FileJson,
+  GitBranch, Grid3x3, Info, Keyboard, Layers, Pause, Play, Plus, Save, Search, Settings, Trash2,
+  Unplug, Upload, X
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams } from 'react-router-dom';
 import ReactFlow, {
-  addEdge,
-  applyEdgeChanges,
-  applyNodeChanges,
-  Background,
-  BackgroundVariant,
-  Controls,
-  Handle,
-  MarkerType,
-  Position
+  addEdge, applyEdgeChanges, applyNodeChanges, Background, BackgroundVariant, Controls
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { toast } from 'sonner';
-
-// Custom Node Component
-function CustomNode({ data, selected }) {
-  return (
-    <div
-      className={`px-4 py-3 shadow-lg rounded-lg border-2 bg-card min-w-[200px] relative transition-all ${selected ? 'ring-2 ring-primary ring-offset-2 scale-105' : 'hover:shadow-xl'
-        }`}
-      style={{ borderColor: data.color || '#6B7280' }}
-    >
-      {data.inputs > 0 && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          className="!w-3 !h-3 !bg-blue-500 !border-2 !border-white hover:!scale-150 transition-transform"
-        />
-      )}
-
-      <div className="flex items-center space-x-3">
-        <div className="text-3xl">{data.icon || '📦'}</div>
-        <div className="flex-1">
-          <div className="text-sm font-bold text-foreground">{data.label}</div>
-          <div className="text-xs text-muted-foreground">{data.type}</div>
-        </div>
-      </div>
-
-      {data.description && (
-        <div className="text-xs text-muted-foreground mt-2 line-clamp-2">
-          {data.description}
-        </div>
-      )}
-
-      {data.config && Object.keys(data.config).length > 0 && (
-        <div className="absolute top-2 right-2">
-          <Badge variant="secondary" className="text-xs">
-            <Settings className="h-3 w-3" />
-          </Badge>
-        </div>
-      )}
-
-      {data.outputs > 0 && (
-        <Handle
-          type="source"
-          position={Position.Right}
-          className="!w-3 !h-3 !bg-green-500 !border-2 !border-white hover:!scale-150 transition-transform"
-        />
-      )}
-    </div>
-  );
-}
+import { CustomNode } from '../components/WorkFlowEditor/CustomNode';
+import { defaultEdgeOptions } from '../Constants/WorkFlowEditor';
 
 const nodeTypes = {
   custom: CustomNode,
-};
-
-const defaultEdgeOptions = {
-  type: 'smoothstep',
-  animated: true,
-  markerEnd: {
-    type: MarkerType.ArrowClosed,
-    width: 20,
-    height: 20,
-    color: '#6B7280',
-  },
-  style: {
-    strokeWidth: 2,
-    stroke: '#6B7280',
-  },
 };
 
 export default function WorkflowEditor() {
@@ -721,50 +609,6 @@ export default function WorkflowEditor() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* {selectedNode && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowConfigDialog(true)}
-                  className="gap-2"
-                >
-                  <Settings className="h-4 w-4" />
-                  Configure
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2">
-                      Actions
-                      {/* <MoreVertical className="h-4 w-4" /> */}
-            {/* <ChevronDown className="h-3 w-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={duplicateSelectedNode}>
-                      <Copy className="h-4 w-4 mr-2" />
-                      Duplicate Node
-                      <Badge variant="secondary" className="ml-auto text-xs">⌘D</Badge>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={disconnectSelectedNode}>
-                      <Unplug className="h-4 w-4 mr-2" />
-                      Disconnect
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => copyToClipboard(JSON.stringify(selectedNode.data.config, null, 2), 'Config')}>
-                      <FileJson className="h-4 w-4 mr-2" />
-                      Copy Config
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={deleteSelectedNode} className="text-destructive">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Node
-                      <Badge variant="secondary" className="ml-auto text-xs">Del</Badge>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            // )} */}
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
@@ -1301,8 +1145,6 @@ export default function WorkflowEditor() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Hidden file input for import */}
       <input
         ref={fileInputRef}
         type="file"

@@ -3,6 +3,13 @@ import Layout from '@/components/Layout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -13,36 +20,28 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+    createWorkflowFromTemplate,
+    getTemplateById,
+    getTemplates,
+} from '@/store/slices/templateSlice';
 import {
     AlertCircle,
     ArrowRight,
     Clock,
     Eye,
     Filter,
+    GitBranch,
+    Layers,
     Rocket,
     Search,
-    Sparkles,
     TrendingUp,
-    Zap,
-    Layers,
-    GitBranch,
     X,
+    Zap
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import {
-    getTemplates,
-    getTemplateById,
-    createWorkflowFromTemplate,
-} from '@/store/slices/templateSlice';
 
 const DIFFICULTY_LEVELS = [
     { value: 'all', label: 'All Levels' },
