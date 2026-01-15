@@ -1,3 +1,6 @@
+import { MarkerType } from 'reactflow';
+import 'reactflow/dist/style.css';
+
 export const defaultEdgeOptions = {
   type: 'smoothstep',
   animated: true,
