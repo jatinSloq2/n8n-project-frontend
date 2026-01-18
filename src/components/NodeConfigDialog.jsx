@@ -27,22 +27,220 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, Code2, Key, Plus, Trash2, Upload, FileIcon, Loader2 } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { 
+  AlertCircle, 
+  Code2, 
+  Key, 
+  Plus, 
+  Trash2, 
+  Upload, 
+  FileIcon, 
+  Loader2,
+  Sparkles,
+  Copy,
+  Check,
+  Info,
+  ChevronRight
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { filesService } from '../services/files.service';
 
-// Expression Input Component
-function ExpressionInput({ value, onChange, availableNodes, placeholder }) {
+// Enhanced Expression Input Component with Variable Suggestions
+function ExpressionInput({ value, onChange, availableNodes, placeholder, property, allUpstreamNodes, nodeType }) {
   const [showHelper, setShowHelper] = useState(false);
+  const [copiedVar, setCopiedVar] = useState(null);
 
-  const insertExpression = (nodeId, path) => {
-    const expression = `{{$node.${nodeId}.${path}}}`;
+  // Generate variable suggestions based on node type
+  const getVariableSuggestions = () => {
+    const suggestions = [];
+
+    // Built-in variables
+    suggestions.push({
+      category: 'Built-in Variables',
+      variables: [
+        { label: 'Current timestamp', value: '{{$now}}', desc: 'ISO date string' },
+        { label: 'Unix timestamp', value: '{{$timestamp}}', desc: 'Milliseconds since epoch' },
+        { label: 'Random UUID', value: '{{$uuid}}', desc: 'Generate unique ID' },
+        { label: 'Random number', value: '{{$random(1,100)}}', desc: 'Random between 1-100' },
+      ]
+    });
+
+    // Previous node data (direct predecessors)
+    if (availableNodes.length > 0) {
+      suggestions.push({
+        category: 'Previous Node Output',
+        variables: availableNodes.flatMap(prevNode => 
+          generateNodeVariables(prevNode, '$prev')
+        )
+      });
+    }
+
+    // All upstream nodes grouped by type
+    const nodesByType = {};
+    allUpstreamNodes.forEach(upstreamNode => {
+      const type = upstreamNode.data.type;
+      if (!nodesByType[type]) nodesByType[type] = [];
+      nodesByType[type].push(upstreamNode);
+    });
+
+    Object.entries(nodesByType).forEach(([type, nodes]) => {
+      nodes.forEach((upstreamNode, index) => {
+        const nodeLabel = nodes.length > 1 
+          ? `${upstreamNode.data.label} (${index + 1})` 
+          : upstreamNode.data.label;
+        
+        suggestions.push({
+          category: nodeLabel,
+          variables: generateNodeVariables(upstreamNode, `$node.${upstreamNode.id}`)
+        });
+      });
+    });
+
+    // Context-specific suggestions for certain fields
+    if (property.name === 'prompt' && nodeType?.includes('ai')) {
+      suggestions.push({
+        category: 'AI Context Suggestions',
+        variables: getAISuggestions(allUpstreamNodes)
+      });
+    }
+
+    if ((property.name === 'toEmail' || property.name === 'body') && nodeType === 'email') {
+      suggestions.push({
+        category: 'Email Suggestions',
+        variables: getEmailSuggestions(allUpstreamNodes)
+      });
+    }
+
+    return suggestions;
+  };
+
+  // Generate sample variables based on node type
+  const generateNodeVariables = (nodeData, prefix) => {
+    const variables = [];
+    const type = nodeData.data.type;
+
+    // Common for all nodes
+    variables.push({
+      label: 'Full output',
+      value: `{{${prefix}.data}}`,
+      desc: 'Complete node output'
+    });
+
+    // Type-specific suggestions
+    switch (type) {
+      case 'httpRequest':
+        variables.push(
+          { label: 'Response body', value: `{{${prefix}.data}}`, desc: 'API response data' },
+          { label: 'Specific field', value: `{{${prefix}.data.fieldName}}`, desc: 'Access specific field' },
+          { label: 'Status code', value: `{{${prefix}.metadata.statusCode}}`, desc: 'HTTP status' }
+        );
+        break;
+
+      case 'aiChat':
+      case 'aiTextGeneration':
+        variables.push(
+          { label: 'AI Response', value: `{{${prefix}.data.response}}`, desc: 'Generated text' },
+          { label: 'Model used', value: `{{${prefix}.data.model}}`, desc: 'AI model name' }
+        );
+        break;
+
+      case 'uploadFile':
+        variables.push(
+          { label: 'File data', value: `{{${prefix}.data}}`, desc: 'Parsed file content' },
+          { label: 'First row', value: `{{${prefix}.data[0]}}`, desc: 'First data row' },
+          { label: 'Loop item', value: '{{$item.fieldName}}', desc: 'When processing array items' }
+        );
+        break;
+
+      case 'code':
+      case 'function':
+        variables.push(
+          { label: 'Code output', value: `{{${prefix}.data}}`, desc: 'Function result' }
+        );
+        break;
+
+      case 'filter':
+      case 'sort':
+        variables.push(
+          { label: 'Filtered items', value: `{{${prefix}.data}}`, desc: 'Processed array' },
+          { label: 'First item', value: `{{${prefix}.data[0]}}`, desc: 'First result' }
+        );
+        break;
+    }
+
+    return variables;
+  };
+
+  // AI-specific suggestions
+  const getAISuggestions = (nodes) => {
+    const suggestions = [];
+    
+    nodes.forEach(node => {
+      if (node.data.type === 'uploadFile') {
+        suggestions.push({
+          label: `Analyze uploaded data`,
+          value: `Analyze this data: {{$node.${node.id}.data}}`,
+          desc: 'Use file content as AI context'
+        });
+      }
+      if (node.data.type === 'httpRequest') {
+        suggestions.push({
+          label: `Process API response`,
+          value: `Process: {{$node.${node.id}.data}}`,
+          desc: 'Use API data as AI input'
+        });
+      }
+    });
+
+    return suggestions;
+  };
+
+  // Email-specific suggestions
+  const getEmailSuggestions = (nodes) => {
+    const suggestions = [];
+    
+    nodes.forEach(node => {
+      if (node.data.type === 'uploadFile') {
+        suggestions.push(
+          { label: 'Recipient email', value: '{{$item.email}}', desc: 'Email from uploaded file' },
+          { label: 'Recipient name', value: '{{$item.name}}', desc: 'Name from uploaded file' }
+        );
+      }
+      if (node.data.type === 'aiChat') {
+        suggestions.push({
+          label: 'AI-generated content',
+          value: `{{$node.${node.id}.data.response}}`,
+          desc: 'Use AI output as email body'
+        });
+      }
+    });
+
+    return suggestions;
+  };
+
+  const insertVariable = (variable) => {
     const currentValue = value || '';
-    // Insert at cursor position or append
-    onChange(currentValue + expression);
+    onChange(currentValue + variable);
+    setCopiedVar(variable);
+    setTimeout(() => setCopiedVar(null), 2000);
+    toast.success('Variable inserted');
     setShowHelper(false);
   };
+
+  const copyVariable = (variable) => {
+    navigator.clipboard.writeText(variable);
+    setCopiedVar(variable);
+    setTimeout(() => setCopiedVar(null), 2000);
+    toast.success('Copied to clipboard');
+  };
+
+  const suggestions = getVariableSuggestions();
 
   return (
     <div className="space-y-2 px-1">
@@ -51,78 +249,98 @@ function ExpressionInput({ value, onChange, availableNodes, placeholder }) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder || "Enter value or use {{expressions}}"}
-          className="font-mono text-sm pr-10"
+          className="font-mono text-sm pr-20"
           rows={3}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="absolute top-2 right-2"
-          onClick={() => setShowHelper(!showHelper)}
-          title="Insert expression from previous nodes"
-        >
-          <Code2 className="h-4 w-4" />
-        </Button>
+        <div className="absolute top-2 right-2 flex gap-1">
+          <Popover open={showHelper} onOpenChange={setShowHelper}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1"
+                title="Insert variable"
+              >
+                <Sparkles className="h-3 w-3" />
+                Variables
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-96 max-h-[500px] overflow-y-auto p-0" align="end">
+              <div className="sticky top-0 bg-background border-b p-3 z-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Code2 className="h-4 w-4" />
+                    <h4 className="font-semibold text-sm">Insert Variable</h4>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowHelper(false)}
+                    className="h-6 px-2"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 space-y-4">
+                {suggestions.map((group, idx) => (
+                  <div key={idx} className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                      {group.category}
+                    </p>
+                    <div className="space-y-1">
+                      {group.variables.map((variable, vIdx) => (
+                        <button
+                          key={vIdx}
+                          onClick={() => insertVariable(variable.value)}
+                          className="w-full p-2 text-left hover:bg-accent rounded-lg transition-colors group"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{variable.label}</p>
+                              <code className="text-xs text-muted-foreground bg-muted px-1 rounded break-all">
+                                {variable.value}
+                              </code>
+                              {variable.desc && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {variable.desc}
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyVariable(variable.value);
+                              }}
+                            >
+                              {copiedVar === variable.value ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
-      {showHelper && availableNodes.length > 0 && (
-        <Card className="p-3 border-2 border-primary/20">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium">Available Node Data:</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowHelper(false)}
-              className="h-6 px-2"
-            >
-              Close
-            </Button>
-          </div>
-          <ScrollArea className="max-h-48">
-            <div className="space-y-2 px-1">
-              <button
-                className="w-full text-left text-xs p-2 hover:bg-muted rounded border"
-                onClick={() => {
-                  onChange((value || '') + '{{$input.fieldName}}');
-                  setShowHelper(false);
-                }}
-              >
-                <span className="font-medium text-primary">Workflow Input</span>
-                <br />
-                <code className="text-xs text-muted-foreground">
-                  {'{{$input.fieldName}}'} - Access workflow input data
-                </code>
-              </button>
-              {availableNodes.map((node) => (
-                <button
-                  key={node.id}
-                  className="w-full text-left text-xs p-2 hover:bg-muted rounded border"
-                  onClick={() => insertExpression(node.id, 'data')}
-                >
-                  <span className="font-medium">{node.data.label}</span>
-                  <br />
-                  <code className="text-xs text-muted-foreground">
-                    {`{{$node.${node.id}.data}}`}
-                  </code>
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
-          <div className="mt-3 pt-3 border-t">
-            <p className="text-xs text-muted-foreground">
-              <strong>Examples:</strong>
-              <br />• <code>{'{{$node.node_123.data.name}}'}</code> - Access specific field
-              <br />• <code>{'{{$input.userId}}'}</code> - Workflow input field
-            </p>
-          </div>
-        </Card>
-      )}
-
-      {showHelper && availableNodes.length === 0 && (
-        <Card className="p-3">
-          <p className="text-xs text-muted-foreground text-center">
-            No previous nodes available. Connect nodes first to use expressions.
+      {availableNodes.length === 0 && (
+        <Card className="p-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200">
+          <p className="text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+            <Info className="h-3 w-3 mt-0.5 shrink-0" />
+            Connect previous nodes to use dynamic data in expressions
           </p>
         </Card>
       )}
@@ -132,10 +350,7 @@ function ExpressionInput({ value, onChange, availableNodes, placeholder }) {
 
 export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes, connections }) {
   const [config, setConfig] = useState(() => {
-    // Create a deep copy to avoid mutating the original object
     const initialConfig = { ...(node?.data?.config || {}) };
-
-    // Apply default values for properties that don't have values
     if (nodeTemplate?.properties) {
       nodeTemplate.properties.forEach((property) => {
         if (property.default !== undefined && initialConfig[property.name] === undefined) {
@@ -143,29 +358,133 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
         }
       });
     }
-
     return initialConfig;
   });
+  
   const [errors, setErrors] = useState({});
   const [uploadingFiles, setUploadingFiles] = useState({});
   const [uploadedFiles, setUploadedFiles] = useState({});
+  const [sampleResponse, setSampleResponse] = useState(null);
 
-  // Add this function inside NodeConfigDialog component
+  // Get nodes that come before this node
+  const getPreviousNodes = () => {
+    if (!node || !allNodes || !connections) return [];
+    const incomingConnections = connections.filter(c => c.target === node.id);
+    const sourceNodeIds = incomingConnections.map(c => c.source);
+    return allNodes.filter(n => sourceNodeIds.includes(n.id));
+  };
+
+  // Get all upstream nodes
+  const getUpstreamNodes = () => {
+    const upstream = [];
+    const visited = new Set();
+
+    const traverse = (nodeId) => {
+      if (visited.has(nodeId)) return;
+      visited.add(nodeId);
+
+      const incoming = connections.filter(c => c.target === nodeId);
+      incoming.forEach(conn => {
+        const sourceNode = allNodes.find(n => n.id === conn.source);
+        if (sourceNode && !upstream.find(n => n.id === sourceNode.id)) {
+          upstream.push(sourceNode);
+          traverse(sourceNode.id);
+        }
+      });
+    };
+
+    traverse(node.id);
+    return upstream;
+  };
+
+  const availableNodes = getPreviousNodes();
+  const upstreamNodes = getUpstreamNodes();
+
+  // Generate sample response for testing
+  const generateSampleResponse = () => {
+    const type = node.data.type;
+    let sample = {};
+
+    switch (type) {
+      case 'httpRequest':
+        sample = {
+          data: {
+            id: 123,
+            name: "John Doe",
+            email: "john@example.com",
+            status: "active",
+            created_at: "2024-01-01T00:00:00Z"
+          },
+          metadata: {
+            statusCode: 200,
+            headers: { "content-type": "application/json" }
+          }
+        };
+        break;
+
+      case 'aiChat':
+      case 'aiTextGeneration':
+        sample = {
+          data: {
+            response: "This is a sample AI-generated response that demonstrates the output structure.",
+            model: "gpt-4",
+            usage: { 
+              prompt_tokens: 25, 
+              completion_tokens: 50,
+              total_tokens: 75 
+            }
+          }
+        };
+        break;
+
+      case 'uploadFile':
+        sample = {
+          data: [
+            { id: 1, name: "Alice Smith", email: "alice@example.com", age: 25 },
+            { id: 2, name: "Bob Johnson", email: "bob@example.com", age: 30 },
+            { id: 3, name: "Charlie Brown", email: "charlie@example.com", age: 35 }
+          ],
+          metadata: {
+            type: "csv",
+            rowCount: 3,
+            columns: ["id", "name", "email", "age"]
+          }
+        };
+        break;
+
+      case 'database':
+        sample = {
+          data: [
+            { id: 1, user_id: 101, amount: 150.50, status: "completed" },
+            { id: 2, user_id: 102, amount: 75.25, status: "pending" }
+          ]
+        };
+        break;
+
+      default:
+        sample = { 
+          data: { 
+            result: "Sample output",
+            status: "success",
+            timestamp: "2024-01-01T00:00:00Z"
+          } 
+        };
+    }
+
+    setSampleResponse(sample);
+    toast.success('Sample response generated');
+  };
+
   const handleFileUpload = async (property, file) => {
     setUploadingFiles(prev => ({ ...prev, [property.name]: true }));
 
     try {
       const uploadedFile = await filesService.uploadFile(file);
-
-      // Store the file info
       setUploadedFiles(prev => ({
         ...prev,
         [property.name]: uploadedFile
       }));
-
-      // Update config with the file ID
       updateConfig(property.name, uploadedFile._id);
-
       toast.success(`✅ File uploaded: ${file.name}`);
     } catch (error) {
       toast.error(`❌ Failed to upload file: ${error.message}`);
@@ -174,19 +493,6 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
     }
   };
 
-
-  // Get nodes that come before this node in the workflow
-  const getPreviousNodes = () => {
-    if (!node || !allNodes || !connections) return [];
-
-    const incomingConnections = connections.filter(c => c.target === node.id);
-    const sourceNodeIds = incomingConnections.map(c => c.source);
-
-    return allNodes.filter(n => sourceNodeIds.includes(n.id));
-  };
-
-  const availableNodes = getPreviousNodes();
-
   useEffect(() => {
     if (node?.data?.config) {
       setConfig(node.data.config);
@@ -194,7 +500,6 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
   }, [node]);
 
   const validateField = (property, value) => {
-
     const actualValue = value !== undefined ? value : property.default;
 
     if (property.required && actualValue !== 0 && actualValue !== false && !actualValue) {
@@ -202,7 +507,6 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
     }
 
     if (property.type === 'string' && property.name === 'url' && value) {
-      // Skip validation if it contains expressions
       if (value.includes('{{') && value.includes('}}')) {
         return null;
       }
@@ -231,7 +535,6 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
     const finalConfig = { ...config };
 
     nodeTemplate.properties?.forEach((property) => {
-      // Use default value if not set
       if (finalConfig[property.name] === undefined && property.default !== undefined) {
         finalConfig[property.name] = property.default;
       }
@@ -259,7 +562,6 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
     }
   };
 
-  // Helper to determine if a field supports expressions
   const supportsExpressions = (property) => {
     return ['string', 'text', 'code'].includes(property.type);
   };
@@ -336,13 +638,16 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
 
     switch (property.type) {
       case 'string':
-        if (canUseExpressions && availableNodes.length > 0) {
+        if (canUseExpressions && (availableNodes.length > 0 || upstreamNodes.length > 0)) {
           return (
             <ExpressionInput
               value={value}
               onChange={(val) => updateConfig(property.name, val)}
               availableNodes={availableNodes}
-              placeholder={property.placeholder || `Enter ${property.label.toLowerCase()} or use expressions`}
+              allUpstreamNodes={upstreamNodes}
+              placeholder={property.placeholder}
+              property={property}
+              nodeType={node.data.type}
             />
           );
         }
@@ -365,13 +670,16 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
 
       case 'text':
       case 'code':
-        if (canUseExpressions && availableNodes.length > 0) {
+        if (canUseExpressions && (availableNodes.length > 0 || upstreamNodes.length > 0)) {
           return (
             <ExpressionInput
               value={value}
               onChange={(val) => updateConfig(property.name, val)}
               availableNodes={availableNodes}
-              placeholder={property.placeholder || `Enter ${property.label.toLowerCase()} or use expressions`}
+              allUpstreamNodes={upstreamNodes}
+              placeholder={property.placeholder}
+              property={property}
+              nodeType={node.data.type}
             />
           );
         }
@@ -381,8 +689,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
               value={value}
               onChange={(e) => updateConfig(property.name, e.target.value)}
               placeholder={property.placeholder || `Enter ${property.label.toLowerCase()}`}
-              className={`min-h-[120px] ${property.type === 'code' ? 'font-mono text-sm' : ''} ${hasError ? 'border-red-500 focus-visible:ring-red-500' : ''
-                }`}
+              className={`min-h-[120px] ${property.type === 'code' ? 'font-mono text-sm' : ''} ${hasError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
             />
             {hasError && (
               <p className="text-xs text-red-500 flex items-center gap-1">
@@ -401,7 +708,6 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
           <div className="space-y-2 px-1">
             <Card className="p-4">
               {value && uploadedFile ? (
-                // Show uploaded file info
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                     <FileIcon className="h-8 w-8 text-primary" />
@@ -429,14 +735,12 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-
                   <div className="text-xs text-muted-foreground p-2 bg-blue-50 dark:bg-blue-950/20 rounded">
                     <p className="font-medium mb-1">File ID:</p>
                     <code className="text-xs">{value}</code>
                   </div>
                 </div>
               ) : (
-                // Show upload button
                 <div className="text-center py-6">
                   <input
                     type="file"
@@ -444,9 +748,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) {
-                        handleFileUpload(property, file);
-                      }
+                      if (file) handleFileUpload(property, file);
                     }}
                     disabled={isUploading}
                     accept=".csv,.xlsx,.xls,.json,.txt,.pdf,.png,.jpg,.jpeg"
@@ -456,7 +758,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
                     className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-dashed transition-colors ${isUploading
                       ? 'border-muted bg-muted cursor-not-allowed'
                       : 'border-primary/50 hover:border-primary hover:bg-primary/5'
-                      }`}
+                    }`}
                   >
                     {isUploading ? (
                       <>
@@ -475,7 +777,6 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
                   </p>
                 </div>
               )}
-
               {hasError && (
                 <p className="text-xs text-red-500 flex items-center gap-1 mt-2">
                   <AlertCircle className="h-3 w-3" />
@@ -572,8 +873,7 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
                 }
               }}
               placeholder={property.placeholder || '{\n  "key": "value"\n}'}
-              className={`min-h-[120px] font-mono text-sm ${hasError ? 'border-red-500 focus-visible:ring-red-500' : ''
-                }`}
+              className={`min-h-[120px] font-mono text-sm ${hasError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
             />
             {hasError && (
               <p className="text-xs text-red-500 flex items-center gap-1">
@@ -796,21 +1096,53 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
           </div>
         </DialogHeader>
 
-        {availableNodes.length > 0 && (
-          <Card className="p-3 bg-blue-50 dark:bg-blue-950/20 border-blue-200">
+        {/* Sample Response Preview for API/AI nodes */}
+        {['httpRequest', 'aiChat', 'aiTextGeneration', 'uploadFile', 'database'].includes(node.data.type) && (
+          <Card className="p-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <h4 className="font-semibold text-sm">Sample Response Preview</h4>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={generateSampleResponse}
+                  className="h-7"
+                >
+                  Generate Sample
+                </Button>
+              </div>
+              
+              {sampleResponse && (
+                <pre className="text-xs bg-white dark:bg-gray-950 p-3 rounded border overflow-x-auto max-h-40">
+                  {JSON.stringify(sampleResponse, null, 2)}
+                </pre>
+              )}
+              
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                Use this sample to understand the output structure and reference it in downstream nodes
+              </p>
+            </div>
+          </Card>
+        )}
+
+        {(availableNodes.length > 0 || upstreamNodes.length > 0) && (
+          <Card className="p-3 bg-green-50 dark:bg-green-950/20 border-green-200">
             <div className="flex items-start gap-2 text-sm">
-              <Code2 className="h-4 w-4 mt-0.5 text-blue-600 dark:text-blue-400" />
+              <Sparkles className="h-4 w-4 mt-0.5 text-green-600 dark:text-green-400" />
               <div>
-                <p className="font-medium text-blue-900 dark:text-blue-100">Expressions Available</p>
-                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                  Use <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">{'{{expressions}}'}</code> to reference data from previous nodes
+                <p className="font-medium text-green-900 dark:text-green-100">Smart Variables Available</p>
+                <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                  Click <Badge variant="outline" className="mx-1 text-xs">Variables</Badge> on text fields to insert data from previous nodes
                 </p>
               </div>
             </div>
           </Card>
         )}
 
-        <ScrollArea className="max-h-[calc(90vh-250px)] pr-4">
+        <ScrollArea className="max-h-[calc(90vh-300px)] pr-4">
           {hasAuthProps ? (
             <Tabs defaultValue="config" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -919,6 +1251,39 @@ export function NodeConfigDialog({ node, nodeTemplate, onClose, onSave, allNodes
                     This node works without any additional settings
                   </p>
                 </div>
+              )}
+
+              {/* Variable Usage Guide */}
+              {(availableNodes.length > 0 || upstreamNodes.length > 0) && (
+                <Card className="p-4 bg-muted/50 mt-6">
+                  <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <Code2 className="h-4 w-4" />
+                    Variable Usage Guide
+                  </h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-start gap-2">
+                      <ChevronRight className="h-3 w-3 mt-0.5 text-primary" />
+                      <div>
+                        <code className="bg-background px-1 rounded">{'{{$prev.data}}'}</code>
+                        <span className="text-muted-foreground ml-2">Access previous node output</span>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <ChevronRight className="h-3 w-3 mt-0.5 text-primary" />
+                      <div>
+                        <code className="bg-background px-1 rounded">{'{{$node.xxx.data.field}}'}</code>
+                        <span className="text-muted-foreground ml-2">Access specific node by ID</span>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <ChevronRight className="h-3 w-3 mt-0.5 text-primary" />
+                      <div>
+                        <code className="bg-background px-1 rounded">{'{{$item.email}}'}</code>
+                        <span className="text-muted-foreground ml-2">Loop through array items</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               )}
             </div>
           )}
